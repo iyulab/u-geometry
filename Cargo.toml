@@ -1,0 +1,18 @@
+[package]
+name = "u-geometry"
+version = "0.1.0"
+edition = "2021"
+authors = ["iyulab"]
+license = "MIT"
+repository = "https://github.com/iyulab/u-geometry"
+description = "Domain-agnostic computational geometry library for the U-Engine ecosystem"
+keywords = ["geometry", "polygon", "computational-geometry", "nfp"]
+categories = ["algorithms", "mathematics"]
+
+[dependencies]
+nalgebra = "0.33"
+robust = "1.1"
+
+[dev-dependencies]
+approx = "0.5"
+proptest = "1.5"
