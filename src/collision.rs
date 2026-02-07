@@ -12,7 +12,7 @@
 //! - Gottschalk, Lin, Manocha (1996), "OBB-Tree: A Hierarchical Structure
 //!   for Rapid Interference Detection"
 
-use crate::primitives::AABB2;
+use crate::primitives::{AABB2, AABB3};
 
 /// Checks if two convex polygons overlap using the Separating Axis Theorem.
 ///
@@ -152,6 +152,57 @@ fn project_on_axis(polygon: &[(f64, f64)], axis: (f64, f64)) -> (f64, f64) {
     (min_proj, max_proj)
 }
 
+// ======================== 3D Collision ========================
+
+/// Checks if two 3D AABBs overlap.
+///
+/// # Complexity
+/// O(1)
+#[inline]
+pub fn aabb3_overlap(a: &AABB3, b: &AABB3) -> bool {
+    a.intersects(b)
+}
+
+/// Checks if two 3D AABBs overlap with a tolerance margin.
+///
+/// Returns `true` if the boxes overlap by more than `tolerance` on all axes.
+/// This allows touching (overlap ≤ tolerance) without reporting collision.
+///
+/// # Complexity
+/// O(1)
+pub fn aabb3_overlap_with_tolerance(a: &AABB3, b: &AABB3, tolerance: f64) -> bool {
+    let overlap_x = a.max.x.min(b.max.x) - a.min.x.max(b.min.x);
+    let overlap_y = a.max.y.min(b.max.y) - a.min.y.max(b.min.y);
+    let overlap_z = a.max.z.min(b.max.z) - a.min.z.max(b.min.z);
+    overlap_x > tolerance && overlap_y > tolerance && overlap_z > tolerance
+}
+
+/// Checks if a 3D AABB is fully contained within a boundary AABB.
+///
+/// Returns `true` if `inner` fits completely inside `boundary`.
+///
+/// # Complexity
+/// O(1)
+#[inline]
+pub fn aabb3_within(inner: &AABB3, boundary: &AABB3) -> bool {
+    boundary.contains(inner)
+}
+
+/// Checks if a 3D AABB fits within a boundary with a margin.
+///
+/// Returns `true` if `inner` fits inside `boundary` shrunk by `margin`.
+///
+/// # Complexity
+/// O(1)
+pub fn aabb3_within_with_margin(inner: &AABB3, boundary: &AABB3, margin: f64) -> bool {
+    inner.min.x >= boundary.min.x + margin
+        && inner.min.y >= boundary.min.y + margin
+        && inner.min.z >= boundary.min.z + margin
+        && inner.max.x <= boundary.max.x - margin
+        && inner.max.y <= boundary.max.y - margin
+        && inner.max.z <= boundary.max.z - margin
+}
+
 /// Computes AABB from tuple points.
 fn aabb_from_tuples(points: &[(f64, f64)]) -> Option<AABB2> {
     let first = points.first()?;
@@ -276,5 +327,72 @@ mod tests {
 
         let c = AABB2::new(20.0, 20.0, 30.0, 30.0);
         assert!(!aabb_overlap(&a, &c));
+    }
+
+    // ======================== 3D Collision Tests ========================
+
+    fn box3d(x: f64, y: f64, z: f64, w: f64, d: f64, h: f64) -> AABB3 {
+        AABB3::new(x, y, z, x + w, y + d, z + h)
+    }
+
+    #[test]
+    fn test_aabb3_overlap_intersecting() {
+        let a = box3d(0.0, 0.0, 0.0, 10.0, 10.0, 10.0);
+        let b = box3d(5.0, 5.0, 5.0, 10.0, 10.0, 10.0);
+        assert!(aabb3_overlap(&a, &b));
+    }
+
+    #[test]
+    fn test_aabb3_overlap_separated() {
+        let a = box3d(0.0, 0.0, 0.0, 10.0, 10.0, 10.0);
+        let b = box3d(20.0, 0.0, 0.0, 10.0, 10.0, 10.0);
+        assert!(!aabb3_overlap(&a, &b));
+    }
+
+    #[test]
+    fn test_aabb3_overlap_touching() {
+        // Touching on one face — intersects returns true (boundary overlap)
+        let a = box3d(0.0, 0.0, 0.0, 10.0, 10.0, 10.0);
+        let b = box3d(10.0, 0.0, 0.0, 10.0, 10.0, 10.0);
+        assert!(aabb3_overlap(&a, &b));
+    }
+
+    #[test]
+    fn test_aabb3_overlap_with_tolerance() {
+        let a = box3d(0.0, 0.0, 0.0, 10.0, 10.0, 10.0);
+        let b = box3d(10.0, 0.0, 0.0, 10.0, 10.0, 10.0);
+        // Touching: overlap = 0 on x-axis, not > tolerance
+        assert!(!aabb3_overlap_with_tolerance(&a, &b, 1e-6));
+
+        // Slightly overlapping
+        let c = box3d(9.5, 0.0, 0.0, 10.0, 10.0, 10.0);
+        assert!(aabb3_overlap_with_tolerance(&a, &c, 1e-6));
+        // With large tolerance, not enough overlap
+        assert!(!aabb3_overlap_with_tolerance(&a, &c, 1.0));
+    }
+
+    #[test]
+    fn test_aabb3_within() {
+        let outer = box3d(0.0, 0.0, 0.0, 20.0, 20.0, 20.0);
+        let inner = box3d(5.0, 5.0, 5.0, 5.0, 5.0, 5.0);
+        assert!(aabb3_within(&inner, &outer));
+        assert!(!aabb3_within(&outer, &inner));
+    }
+
+    #[test]
+    fn test_aabb3_within_with_margin() {
+        let boundary = box3d(0.0, 0.0, 0.0, 20.0, 20.0, 20.0);
+        let inner = box3d(2.0, 2.0, 2.0, 5.0, 5.0, 5.0);
+        assert!(aabb3_within_with_margin(&inner, &boundary, 1.0));
+        // With larger margin, inner is too close to boundary
+        assert!(!aabb3_within_with_margin(&inner, &boundary, 3.0));
+    }
+
+    #[test]
+    fn test_aabb3_overlap_z_separated() {
+        // Overlap in x,y but separated in z
+        let a = box3d(0.0, 0.0, 0.0, 10.0, 10.0, 10.0);
+        let b = box3d(5.0, 5.0, 20.0, 10.0, 10.0, 10.0);
+        assert!(!aabb3_overlap(&a, &b));
     }
 }
