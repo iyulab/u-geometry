@@ -9,6 +9,8 @@
 //! - **`polygon`**: Polygon operations — area, centroid, convex hull, winding
 //! - **`transform`**: Rigid transformations — `Transform2D` (rotation + translation)
 //! - **`robust`**: Numerically robust geometric predicates (Shewchuk)
+//! - **`collision`**: SAT-based collision detection for convex polygons
+//! - **`minkowski`**: Minkowski sum and NFP for convex polygons
 //!
 //! # Architecture
 //!
@@ -22,6 +24,8 @@
 //! - Shewchuk (1997), "Adaptive Precision Floating-Point Arithmetic"
 //! - O'Rourke (1998), "Computational Geometry in C"
 
+pub mod collision;
+pub mod minkowski;
 pub mod polygon;
 pub mod primitives;
 pub mod robust;
