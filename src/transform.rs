@@ -27,6 +27,7 @@ use nalgebra::{
 /// assert!((y - 21.0).abs() < 1e-10);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Transform2D {
     /// Translation x.
     pub tx: f64,
@@ -148,6 +149,7 @@ impl Default for Transform2D {
 /// # Reference
 /// Diebel (2006), "Representing Attitude: Euler Angles, Unit Quaternions, and Rotation Vectors"
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Transform3D {
     /// Translation x.
     pub tx: f64,
@@ -459,5 +461,28 @@ mod tests {
     fn test_3d_default_is_identity() {
         let t = Transform3D::default();
         assert!(t.is_identity(1e-15));
+    }
+
+    // ======================== Serde Tests ========================
+
+    #[cfg(feature = "serde")]
+    mod serde_tests {
+        use super::*;
+
+        #[test]
+        fn test_transform2d_roundtrip() {
+            let t = Transform2D::new(10.0, 20.0, std::f64::consts::PI / 4.0);
+            let json = serde_json::to_string(&t).unwrap();
+            let t2: Transform2D = serde_json::from_str(&json).unwrap();
+            assert_eq!(t, t2);
+        }
+
+        #[test]
+        fn test_transform3d_roundtrip() {
+            let t = Transform3D::new(1.0, 2.0, 3.0, 0.1, 0.2, 0.3);
+            let json = serde_json::to_string(&t).unwrap();
+            let t2: Transform3D = serde_json::from_str(&json).unwrap();
+            assert_eq!(t, t2);
+        }
     }
 }

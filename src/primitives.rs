@@ -14,6 +14,7 @@ use std::ops::{Add, Mul, Sub};
 
 /// A 2D point.
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Point2 {
     pub x: f64,
     pub y: f64,
@@ -91,6 +92,7 @@ impl Add<Vector2> for Point2 {
 
 /// A 2D vector.
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Vector2 {
     pub x: f64,
     pub y: f64,
@@ -177,6 +179,7 @@ impl Mul<f64> for Vector2 {
 
 /// A 2D line segment.
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Segment2 {
     pub start: Point2,
     pub end: Point2,
@@ -221,6 +224,7 @@ impl Segment2 {
 /// # Invariant
 /// `min.x <= max.x` and `min.y <= max.y`.
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct AABB2 {
     /// Minimum corner.
     pub min: Point2,
@@ -340,6 +344,7 @@ impl AABB2 {
 
 /// A 3D point.
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Point3 {
     pub x: f64,
     pub y: f64,
@@ -455,6 +460,7 @@ impl Sub<Vector3> for Point3 {
 
 /// A 3D vector.
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Vector3 {
     pub x: f64,
     pub y: f64,
@@ -580,6 +586,7 @@ impl Mul<f64> for Vector3 {
 /// # Reference
 /// Ericson (2005), "Real-Time Collision Detection", Ch. 4.2
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct AABB3 {
     /// Minimum corner.
     pub min: Point3,
@@ -1114,5 +1121,68 @@ mod tests {
         assert!((c.x - 5.0).abs() < 1e-10);
         assert!((c.y - 10.0).abs() < 1e-10);
         assert!((c.z - 15.0).abs() < 1e-10);
+    }
+
+    // ======================== Serde Tests ========================
+
+    #[cfg(feature = "serde")]
+    mod serde_tests {
+        use super::*;
+
+        #[test]
+        fn test_point2_roundtrip() {
+            let p = Point2::new(3.14, 2.72);
+            let json = serde_json::to_string(&p).unwrap();
+            let p2: Point2 = serde_json::from_str(&json).unwrap();
+            assert_eq!(p, p2);
+        }
+
+        #[test]
+        fn test_vector2_roundtrip() {
+            let v = Vector2::new(-1.0, 5.5);
+            let json = serde_json::to_string(&v).unwrap();
+            let v2: Vector2 = serde_json::from_str(&json).unwrap();
+            assert_eq!(v, v2);
+        }
+
+        #[test]
+        fn test_segment2_roundtrip() {
+            let s = Segment2::new(Point2::new(0.0, 0.0), Point2::new(10.0, 20.0));
+            let json = serde_json::to_string(&s).unwrap();
+            let s2: Segment2 = serde_json::from_str(&json).unwrap();
+            assert_eq!(s, s2);
+        }
+
+        #[test]
+        fn test_aabb2_roundtrip() {
+            let aabb = AABB2::new(1.0, 2.0, 10.0, 20.0);
+            let json = serde_json::to_string(&aabb).unwrap();
+            let aabb2: AABB2 = serde_json::from_str(&json).unwrap();
+            assert_eq!(aabb, aabb2);
+        }
+
+        #[test]
+        fn test_point3_roundtrip() {
+            let p = Point3::new(1.0, 2.0, 3.0);
+            let json = serde_json::to_string(&p).unwrap();
+            let p2: Point3 = serde_json::from_str(&json).unwrap();
+            assert_eq!(p, p2);
+        }
+
+        #[test]
+        fn test_vector3_roundtrip() {
+            let v = Vector3::new(4.0, 5.0, 6.0);
+            let json = serde_json::to_string(&v).unwrap();
+            let v2: Vector3 = serde_json::from_str(&json).unwrap();
+            assert_eq!(v, v2);
+        }
+
+        #[test]
+        fn test_aabb3_roundtrip() {
+            let aabb = AABB3::new(0.0, 0.0, 0.0, 10.0, 20.0, 30.0);
+            let json = serde_json::to_string(&aabb).unwrap();
+            let aabb2: AABB3 = serde_json::from_str(&json).unwrap();
+            assert_eq!(aabb, aabb2);
+        }
     }
 }

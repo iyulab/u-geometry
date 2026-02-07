@@ -20,6 +20,7 @@ use robust::{orient2d as shewchuk_orient2d, Coord};
 
 /// Result of an orientation test.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Orientation {
     /// Points form a counter-clockwise (left) turn.
     CounterClockwise,

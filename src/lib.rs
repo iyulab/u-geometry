@@ -36,3 +36,14 @@ pub mod primitives;
 pub mod robust;
 pub mod spatial_index;
 pub mod transform;
+
+/// Re-exports of nalgebra types commonly used with this crate.
+///
+/// Consumers can import these directly instead of adding a separate
+/// `nalgebra` dependency, ensuring version consistency across the ecosystem.
+pub mod nalgebra_types {
+    pub use nalgebra::{
+        Isometry2, Isometry3, Point2 as NaPoint2, Point3 as NaPoint3, Rotation2, Rotation3,
+        UnitQuaternion, Vector2 as NaVector2, Vector3 as NaVector3,
+    };
+}
