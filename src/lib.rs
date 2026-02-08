@@ -43,7 +43,7 @@ pub mod transform;
 /// `nalgebra` dependency, ensuring version consistency across the ecosystem.
 pub mod nalgebra_types {
     pub use nalgebra::{
-        Isometry2, Isometry3, Point2 as NaPoint2, Point3 as NaPoint3, Rotation2, Rotation3,
-        UnitQuaternion, Vector2 as NaVector2, Vector3 as NaVector3,
+        Isometry2, Isometry3, Point2 as NaPoint2, Point3 as NaPoint3, RealField, Rotation2,
+        Rotation3, UnitQuaternion, Vector2 as NaVector2, Vector3 as NaVector3,
     };
 }
