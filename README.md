@@ -2,8 +2,10 @@
 
 **Domain-agnostic computational geometry library**
 
+[![Crates.io](https://img.shields.io/crates/v/u-geometry.svg)](https://crates.io/crates/u-geometry)
+[![docs.rs](https://docs.rs/u-geometry/badge.svg)](https://docs.rs/u-geometry)
+[![CI](https://github.com/iyulab/u-geometry/actions/workflows/ci.yml/badge.svg)](https://github.com/iyulab/u-geometry/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Rust](https://img.shields.io/badge/rust-2021-orange.svg)](https://www.rust-lang.org/)
 
 ## Overview
 
