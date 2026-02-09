@@ -83,7 +83,7 @@ MIT License — see [LICENSE](LICENSE).
 
 ## Related
 
-- [u-optim](https://github.com/iyulab/u-optim) — Mathematical primitives
+- [u-numerics](https://github.com/iyulab/u-numerics) — Mathematical primitives
 - [u-metaheur](https://github.com/iyulab/u-metaheur) — Metaheuristic optimization (GA, SA, ALNS, CP)
 - [u-schedule](https://github.com/iyulab/u-schedule) — Scheduling framework
 - [u-nesting](https://github.com/iyulab/U-Nesting) — 2D/3D nesting and bin packing
