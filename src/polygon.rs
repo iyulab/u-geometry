@@ -224,6 +224,44 @@ pub fn convex_hull(points: &[(f64, f64)]) -> Vec<(f64, f64)> {
     hull
 }
 
+/// Checks if a simple polygon is convex.
+///
+/// Uses robust orientation predicates for numerical stability.
+/// A polygon is convex if all consecutive edge turns have the same
+/// orientation (all CCW or all CW). Collinear edges are skipped.
+/// Returns `false` for polygons with fewer than 3 vertices.
+///
+/// # Complexity
+/// O(n)
+pub fn is_convex(polygon: &[(f64, f64)]) -> bool {
+    let n = polygon.len();
+    if n < 3 {
+        return false;
+    }
+
+    let mut expected: Option<crate::robust::Orientation> = None;
+
+    for i in 0..n {
+        let p0 = polygon[i];
+        let p1 = polygon[(i + 1) % n];
+        let p2 = polygon[(i + 2) % n];
+
+        let o = orient2d(p0, p1, p2);
+
+        if o.is_collinear() {
+            continue;
+        }
+
+        match expected {
+            None => expected = Some(o),
+            Some(ref exp) if *exp != o => return false,
+            _ => {}
+        }
+    }
+
+    true
+}
+
 /// Ensures a polygon has counter-clockwise winding order.
 ///
 /// If the polygon is already CCW, returns a clone. Otherwise reverses it.
@@ -457,6 +495,39 @@ mod tests {
         let hull = convex_hull(&l_shape);
         // L-shape hull: (0,0), (10,0), (10,5), (5,10), (0,10) — 5 vertices
         assert_eq!(hull.len(), 5);
+    }
+
+    // ---- is_convex tests ----
+
+    #[test]
+    fn test_is_convex_square() {
+        let square = [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)];
+        assert!(is_convex(&square));
+    }
+
+    #[test]
+    fn test_is_convex_triangle() {
+        let tri = [(0.0, 0.0), (10.0, 0.0), (5.0, 10.0)];
+        assert!(is_convex(&tri));
+    }
+
+    #[test]
+    fn test_is_convex_l_shape() {
+        let l = [
+            (0.0, 0.0),
+            (20.0, 0.0),
+            (20.0, 10.0),
+            (10.0, 10.0),
+            (10.0, 20.0),
+            (0.0, 20.0),
+        ];
+        assert!(!is_convex(&l));
+    }
+
+    #[test]
+    fn test_is_convex_degenerate() {
+        assert!(!is_convex(&[(0.0, 0.0), (1.0, 0.0)]));
+        assert!(!is_convex(&[]));
     }
 
     // ---- ensure_ccw tests ----
