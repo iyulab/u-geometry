@@ -87,6 +87,61 @@ pub fn centroid(polygon: &[(f64, f64)]) -> Option<(f64, f64)> {
     Some((cx * inv, cy * inv))
 }
 
+/// Computes the unsigned area of a polygon with holes.
+///
+/// The total area is the exterior area minus the sum of hole areas.
+///
+/// # Complexity
+/// O(n) where n is the total number of vertices across all rings
+pub fn area_with_holes(exterior: &[(f64, f64)], holes: &[&[(f64, f64)]]) -> f64 {
+    let mut total = area(exterior);
+    for hole in holes {
+        total -= area(hole);
+    }
+    total.max(0.0)
+}
+
+/// Computes the centroid of a polygon with holes.
+///
+/// Uses area-weighted centroid: each ring's centroid is weighted by its
+/// signed area, then combined. Returns `None` if the net area is zero.
+///
+/// # Complexity
+/// O(n) where n is the total number of vertices across all rings
+///
+/// # Reference
+/// Extension of O'Rourke (1998), Eq. 1.6 to multiply-connected polygons
+pub fn centroid_with_holes(
+    exterior: &[(f64, f64)],
+    holes: &[&[(f64, f64)]],
+) -> Option<(f64, f64)> {
+    let ext_area = signed_area(exterior);
+    let ext_centroid = centroid(exterior)?;
+
+    if holes.is_empty() {
+        return Some(ext_centroid);
+    }
+
+    let mut weighted_cx = ext_area * ext_centroid.0;
+    let mut weighted_cy = ext_area * ext_centroid.1;
+    let mut total_area = ext_area;
+
+    for hole in holes {
+        let h_area = signed_area(hole);
+        if let Some((hcx, hcy)) = centroid(hole) {
+            weighted_cx -= h_area.abs() * hcx;
+            weighted_cy -= h_area.abs() * hcy;
+            total_area -= h_area.abs();
+        }
+    }
+
+    if total_area.abs() < 1e-15 {
+        return None;
+    }
+
+    Some((weighted_cx / total_area, weighted_cy / total_area))
+}
+
 /// Computes the perimeter of a polygon.
 ///
 /// # Complexity
@@ -283,6 +338,65 @@ mod tests {
         assert!(centroid(&[(0.0, 0.0), (1.0, 0.0)]).is_none());
         // Collinear points (zero area)
         assert!(centroid(&[(0.0, 0.0), (1.0, 0.0), (2.0, 0.0)]).is_none());
+    }
+
+    // ---- Area with holes tests ----
+
+    #[test]
+    fn test_area_with_holes_no_holes() {
+        let ext = [(0.0, 0.0), (100.0, 0.0), (100.0, 100.0), (0.0, 100.0)];
+        assert!((area_with_holes(&ext, &[]) - 10000.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_area_with_holes_one_hole() {
+        let ext = [(0.0, 0.0), (100.0, 0.0), (100.0, 100.0), (0.0, 100.0)];
+        let hole: &[(f64, f64)] =
+            &[(25.0, 25.0), (75.0, 25.0), (75.0, 75.0), (25.0, 75.0)];
+        // 10000 - 2500 = 7500
+        assert!((area_with_holes(&ext, &[hole]) - 7500.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_area_with_holes_two_holes() {
+        let ext = [(0.0, 0.0), (100.0, 0.0), (100.0, 100.0), (0.0, 100.0)];
+        let h1: &[(f64, f64)] = &[(10.0, 10.0), (30.0, 10.0), (30.0, 30.0), (10.0, 30.0)];
+        let h2: &[(f64, f64)] = &[(50.0, 50.0), (70.0, 50.0), (70.0, 70.0), (50.0, 70.0)];
+        // 10000 - 400 - 400 = 9200
+        assert!((area_with_holes(&ext, &[h1, h2]) - 9200.0).abs() < 1e-10);
+    }
+
+    // ---- Centroid with holes tests ----
+
+    #[test]
+    fn test_centroid_with_holes_no_holes() {
+        let ext = [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)];
+        let (cx, cy) = centroid_with_holes(&ext, &[]).unwrap();
+        assert!((cx - 5.0).abs() < 1e-10);
+        assert!((cy - 5.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_centroid_with_holes_symmetric_hole() {
+        // Square with centered square hole — centroid stays at center
+        let ext = [(0.0, 0.0), (100.0, 0.0), (100.0, 100.0), (0.0, 100.0)];
+        let hole: &[(f64, f64)] =
+            &[(25.0, 25.0), (75.0, 25.0), (75.0, 75.0), (25.0, 75.0)];
+        let (cx, cy) = centroid_with_holes(&ext, &[hole]).unwrap();
+        assert!((cx - 50.0).abs() < 1e-6);
+        assert!((cy - 50.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_centroid_with_holes_asymmetric_hole() {
+        // Square with hole in upper-right — centroid shifts toward lower-left
+        let ext = [(0.0, 0.0), (100.0, 0.0), (100.0, 100.0), (0.0, 100.0)];
+        let hole: &[(f64, f64)] =
+            &[(50.0, 50.0), (100.0, 50.0), (100.0, 100.0), (50.0, 100.0)];
+        let (cx, cy) = centroid_with_holes(&ext, &[hole]).unwrap();
+        // Centroid should shift toward lower-left
+        assert!(cx < 50.0);
+        assert!(cy < 50.0);
     }
 
     // ---- Perimeter tests ----
