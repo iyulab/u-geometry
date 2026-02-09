@@ -111,10 +111,7 @@ pub fn area_with_holes(exterior: &[(f64, f64)], holes: &[&[(f64, f64)]]) -> f64 
 ///
 /// # Reference
 /// Extension of O'Rourke (1998), Eq. 1.6 to multiply-connected polygons
-pub fn centroid_with_holes(
-    exterior: &[(f64, f64)],
-    holes: &[&[(f64, f64)]],
-) -> Option<(f64, f64)> {
+pub fn centroid_with_holes(exterior: &[(f64, f64)], holes: &[&[(f64, f64)]]) -> Option<(f64, f64)> {
     let ext_area = signed_area(exterior);
     let ext_centroid = centroid(exterior)?;
 
@@ -389,8 +386,7 @@ mod tests {
     #[test]
     fn test_area_with_holes_one_hole() {
         let ext = [(0.0, 0.0), (100.0, 0.0), (100.0, 100.0), (0.0, 100.0)];
-        let hole: &[(f64, f64)] =
-            &[(25.0, 25.0), (75.0, 25.0), (75.0, 75.0), (25.0, 75.0)];
+        let hole: &[(f64, f64)] = &[(25.0, 25.0), (75.0, 25.0), (75.0, 75.0), (25.0, 75.0)];
         // 10000 - 2500 = 7500
         assert!((area_with_holes(&ext, &[hole]) - 7500.0).abs() < 1e-10);
     }
@@ -418,8 +414,7 @@ mod tests {
     fn test_centroid_with_holes_symmetric_hole() {
         // Square with centered square hole — centroid stays at center
         let ext = [(0.0, 0.0), (100.0, 0.0), (100.0, 100.0), (0.0, 100.0)];
-        let hole: &[(f64, f64)] =
-            &[(25.0, 25.0), (75.0, 25.0), (75.0, 75.0), (25.0, 75.0)];
+        let hole: &[(f64, f64)] = &[(25.0, 25.0), (75.0, 25.0), (75.0, 75.0), (25.0, 75.0)];
         let (cx, cy) = centroid_with_holes(&ext, &[hole]).unwrap();
         assert!((cx - 50.0).abs() < 1e-6);
         assert!((cy - 50.0).abs() < 1e-6);
@@ -429,8 +424,7 @@ mod tests {
     fn test_centroid_with_holes_asymmetric_hole() {
         // Square with hole in upper-right — centroid shifts toward lower-left
         let ext = [(0.0, 0.0), (100.0, 0.0), (100.0, 100.0), (0.0, 100.0)];
-        let hole: &[(f64, f64)] =
-            &[(50.0, 50.0), (100.0, 50.0), (100.0, 100.0), (50.0, 100.0)];
+        let hole: &[(f64, f64)] = &[(50.0, 50.0), (100.0, 50.0), (100.0, 100.0), (50.0, 100.0)];
         let (cx, cy) = centroid_with_holes(&ext, &[hole]).unwrap();
         // Centroid should shift toward lower-left
         assert!(cx < 50.0);
