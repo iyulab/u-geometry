@@ -5,7 +5,8 @@ edition = "2021"
 authors = ["iyulab"]
 license = "MIT"
 repository = "https://github.com/iyulab/u-geometry"
-description = "Domain-agnostic computational geometry library for the U-Engine ecosystem"
+description = "Domain-agnostic computational geometry: primitives, polygons, NFP, collision detection, spatial indexing."
+readme = "README.md"
 keywords = ["geometry", "polygon", "computational-geometry", "nfp"]
 categories = ["algorithms", "mathematics"]
 
