@@ -7,16 +7,7 @@
 
 ## Overview
 
-u-geometry provides fundamental geometric primitives, transformations, polygon operations, collision detection, and spatial indexing. It sits at **Layer 2 (Algorithms)** in the U-Engine architecture, parallel to `u-metaheur`. It contains no domain-specific concepts — nesting, packing, manufacturing, etc. are all defined by consumers at higher layers.
-
-```
-Consumer Layer
-  u-nesting
-Framework Layer
-  u-nesting  →  u-geometry  ← you are here
-                    ↓
-                 (nalgebra)
-```
+u-geometry provides fundamental geometric primitives, transformations, polygon operations, collision detection, and spatial indexing. It contains no domain-specific concepts — nesting, packing, routing, etc. are defined by consumers.
 
 ## Modules
 
@@ -73,7 +64,7 @@ cargo test
 cargo bench  # criterion benchmarks
 ```
 
-## References
+## Academic References
 
 - de Berg, Cheong, van Kreveld, Overmars (2008), *Computational Geometry*
 - Shewchuk (1997), *Adaptive Precision Floating-Point Arithmetic*
@@ -89,3 +80,10 @@ cargo bench  # criterion benchmarks
 ## License
 
 MIT License — see [LICENSE](LICENSE).
+
+## Related
+
+- [u-optim](https://github.com/iyulab/u-optim) — Mathematical primitives
+- [u-metaheur](https://github.com/iyulab/u-metaheur) — Metaheuristic optimization (GA, SA, ALNS, CP)
+- [u-schedule](https://github.com/iyulab/u-schedule) — Scheduling framework
+- [u-nesting](https://github.com/iyulab/U-Nesting) — 2D/3D nesting and bin packing
