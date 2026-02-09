@@ -7,7 +7,7 @@ use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criteri
 use u_geometry::collision;
 use u_geometry::minkowski;
 use u_geometry::polygon;
-use u_geometry::primitives::{AABB2, AABB3, Point2};
+use u_geometry::primitives::{Point2, AABB2, AABB3};
 use u_geometry::robust;
 use u_geometry::spatial_index::{SpatialIndex2D, SpatialIndex3D};
 use u_geometry::transform::Transform2D;
@@ -171,10 +171,7 @@ fn bench_spatial_index_3d(c: &mut Criterion) {
             let x = (i * 10) as f64;
             let y = (i * 7) as f64;
             let z = (i * 5) as f64;
-            idx.insert(
-                i,
-                AABB3::new(x, y, z, x + 10.0, y + 10.0, z + 10.0),
-            );
+            idx.insert(i, AABB3::new(x, y, z, x + 10.0, y + 10.0, z + 10.0));
         }
         let query_region = AABB3::new(0.0, 0.0, 0.0, 100.0, 100.0, 100.0);
         group.bench_with_input(BenchmarkId::new("query", n), &idx, |b, idx| {
@@ -208,9 +205,7 @@ fn bench_nfp_convex(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::from_parameter(n),
             &(stationary, orbiting),
-            |b, (s, o)| {
-                b.iter(|| minkowski::nfp_convex(black_box(s), black_box(o)))
-            },
+            |b, (s, o)| b.iter(|| minkowski::nfp_convex(black_box(s), black_box(o))),
         );
     }
     group.finish();

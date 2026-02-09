@@ -140,12 +140,7 @@ pub fn orient2d_filtered(pa: (f64, f64), pb: (f64, f64), pc: (f64, f64)) -> Orie
 ///
 /// # Complexity
 /// O(1)
-pub fn point_in_triangle(
-    p: (f64, f64),
-    a: (f64, f64),
-    b: (f64, f64),
-    c: (f64, f64),
-) -> bool {
+pub fn point_in_triangle(p: (f64, f64), a: (f64, f64), b: (f64, f64), c: (f64, f64)) -> bool {
     let o1 = orient2d(a, b, p);
     let o2 = orient2d(b, c, p);
     let o3 = orient2d(c, a, p);
@@ -345,8 +340,18 @@ mod tests {
 
     #[test]
     fn test_is_ccw_square() {
-        assert!(is_ccw(&[(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)]));
-        assert!(!is_ccw(&[(0.0, 0.0), (0.0, 10.0), (10.0, 10.0), (10.0, 0.0)]));
+        assert!(is_ccw(&[
+            (0.0, 0.0),
+            (10.0, 0.0),
+            (10.0, 10.0),
+            (0.0, 10.0)
+        ]));
+        assert!(!is_ccw(&[
+            (0.0, 0.0),
+            (0.0, 10.0),
+            (10.0, 10.0),
+            (10.0, 0.0)
+        ]));
     }
 
     #[test]

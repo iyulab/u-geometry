@@ -208,10 +208,7 @@ impl Transform3D {
     #[inline]
     pub fn to_isometry(&self) -> Isometry3<f64> {
         let rotation = UnitQuaternion::from_euler_angles(self.rx, self.ry, self.rz);
-        Isometry3::from_parts(
-            NaVector3::new(self.tx, self.ty, self.tz).into(),
-            rotation,
-        )
+        Isometry3::from_parts(NaVector3::new(self.tx, self.ty, self.tz).into(), rotation)
     }
 
     /// Creates from a nalgebra `Isometry3`.

@@ -226,20 +226,11 @@ mod tests {
     use super::*;
 
     fn square(x: f64, y: f64, size: f64) -> Vec<(f64, f64)> {
-        vec![
-            (x, y),
-            (x + size, y),
-            (x + size, y + size),
-            (x, y + size),
-        ]
+        vec![(x, y), (x + size, y), (x + size, y + size), (x, y + size)]
     }
 
     fn triangle(x: f64, y: f64, size: f64) -> Vec<(f64, f64)> {
-        vec![
-            (x, y),
-            (x + size, y),
-            (x + size / 2.0, y + size),
-        ]
+        vec![(x, y), (x + size, y), (x + size / 2.0, y + size)]
     }
 
     #[test]

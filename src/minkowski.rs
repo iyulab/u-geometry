@@ -118,10 +118,7 @@ pub fn minkowski_sum_convex(p: &[(f64, f64)], q: &[(f64, f64)]) -> Vec<(f64, f64
 ///
 /// # Reference
 /// Bennell & Oliveira (2008), "The geometry of nesting problems"
-pub fn nfp_convex(
-    stationary: &[(f64, f64)],
-    orbiting: &[(f64, f64)],
-) -> Vec<(f64, f64)> {
+pub fn nfp_convex(stationary: &[(f64, f64)], orbiting: &[(f64, f64)]) -> Vec<(f64, f64)> {
     // Negate the orbiting polygon (reflect about origin)
     let neg_orbiting: Vec<(f64, f64)> = orbiting.iter().map(|&(x, y)| (-x, -y)).collect();
     minkowski_sum_convex(stationary, &neg_orbiting)
@@ -156,12 +153,7 @@ mod tests {
     use crate::polygon::area;
 
     fn square_at(x: f64, y: f64, size: f64) -> Vec<(f64, f64)> {
-        vec![
-            (x, y),
-            (x + size, y),
-            (x + size, y + size),
-            (x, y + size),
-        ]
+        vec![(x, y), (x + size, y), (x + size, y + size), (x, y + size)]
     }
 
     #[test]
@@ -173,10 +165,7 @@ mod tests {
 
         // Result should have area 4.0 (2x2 square)
         let a = area(&sum);
-        assert!(
-            (a - 4.0).abs() < 1e-8,
-            "expected area 4.0, got {a}"
-        );
+        assert!((a - 4.0).abs() < 1e-8, "expected area 4.0, got {a}");
     }
 
     #[test]
