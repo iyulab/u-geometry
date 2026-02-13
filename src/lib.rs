@@ -31,6 +31,7 @@
 
 pub mod collision;
 pub mod minkowski;
+pub mod offset;
 pub mod polygon;
 pub mod primitives;
 pub mod robust;
