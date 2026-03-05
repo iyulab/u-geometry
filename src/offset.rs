@@ -197,11 +197,7 @@ fn point_to_segment_distance(p: (f64, f64), a: (f64, f64), b: (f64, f64)) -> f64
 ///
 /// For a CCW-wound polygon, the outward normal of edge `(p0 -> p1)` points to
 /// the right: `(dy, -dx)` normalized, then scaled by `distance`.
-pub fn offset_edge(
-    p0: (f64, f64),
-    p1: (f64, f64),
-    distance: f64,
-) -> ((f64, f64), (f64, f64)) {
+pub fn offset_edge(p0: (f64, f64), p1: (f64, f64), distance: f64) -> ((f64, f64), (f64, f64)) {
     let dx = p1.0 - p0.0;
     let dy = p1.1 - p0.1;
     let len = (dx * dx + dy * dy).sqrt();
@@ -276,7 +272,9 @@ fn remove_consecutive_duplicates(vertices: &[(f64, f64)]) -> Vec<(f64, f64)> {
     let mut result = vec![vertices[0]];
 
     for &v in &vertices[1..] {
-        let last = result.last().expect("result is non-empty after initial push");
+        let last = result
+            .last()
+            .expect("result is non-empty after initial push");
         if (v.0 - last.0).abs() > EPS || (v.1 - last.1).abs() > EPS {
             result.push(v);
         }
@@ -310,10 +308,9 @@ fn resolve_self_intersections(vertices: &[(f64, f64)]) -> Vec<Vec<(f64, f64)>> {
             }
             let j_next = (j + 1) % n;
 
-            if let Some((t, u, pt)) = segment_intersection(
-                vertices[i], vertices[i_next],
-                vertices[j], vertices[j_next],
-            ) {
+            if let Some((t, u, pt)) =
+                segment_intersection(vertices[i], vertices[i_next], vertices[j], vertices[j_next])
+            {
                 event_edge_i.push(i);
                 event_edge_j.push(j);
                 event_t_i.push(t);
@@ -414,9 +411,7 @@ fn resolve_self_intersections(vertices: &[(f64, f64)]) -> Vec<Vec<(f64, f64)>> {
                 if sa > EPS {
                     for &lp in &loop_pts {
                         for (idx, &np) in node_points.iter().enumerate() {
-                            if (lp.0 - np.0).abs() < EPS
-                                && (lp.1 - np.1).abs() < EPS
-                            {
+                            if (lp.0 - np.0).abs() < EPS && (lp.1 - np.1).abs() < EPS {
                                 visited[idx] = true;
                             }
                         }
@@ -532,7 +527,10 @@ mod tests {
         assert!(!result.is_empty());
         let original_area = approx_area(&tri);
         let offset_area = approx_area(&result[0]);
-        assert!(offset_area > original_area, "{offset_area} <= {original_area}");
+        assert!(
+            offset_area > original_area,
+            "{offset_area} <= {original_area}"
+        );
     }
 
     #[test]
@@ -542,7 +540,10 @@ mod tests {
         assert!(!result.is_empty());
         let original_area = approx_area(&tri);
         let offset_area = approx_area(&result[0]);
-        assert!(offset_area < original_area, "{offset_area} >= {original_area}");
+        assert!(
+            offset_area < original_area,
+            "{offset_area} >= {original_area}"
+        );
     }
 
     #[test]
@@ -580,8 +581,12 @@ mod tests {
     #[test]
     fn test_l_shape_offset_outward() {
         let l_shape = [
-            (0.0, 0.0), (20.0, 0.0), (20.0, 10.0),
-            (10.0, 10.0), (10.0, 20.0), (0.0, 20.0),
+            (0.0, 0.0),
+            (20.0, 0.0),
+            (20.0, 10.0),
+            (10.0, 10.0),
+            (10.0, 20.0),
+            (0.0, 20.0),
         ];
         let result = offset_polygon(&l_shape, 1.0);
         assert!(!result.is_empty());
@@ -593,8 +598,12 @@ mod tests {
     #[test]
     fn test_l_shape_offset_inward() {
         let l_shape = [
-            (0.0, 0.0), (20.0, 0.0), (20.0, 10.0),
-            (10.0, 10.0), (10.0, 20.0), (0.0, 20.0),
+            (0.0, 0.0),
+            (20.0, 0.0),
+            (20.0, 10.0),
+            (10.0, 10.0),
+            (10.0, 20.0),
+            (0.0, 20.0),
         ];
         let result = offset_polygon(&l_shape, -1.0);
         assert!(!result.is_empty());
