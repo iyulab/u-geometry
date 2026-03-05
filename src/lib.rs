@@ -38,6 +38,9 @@ pub mod robust;
 pub mod spatial_index;
 pub mod transform;
 
+#[cfg(feature = "wasm")]
+pub mod wasm;
+
 /// Re-exports of nalgebra types commonly used with this crate.
 ///
 /// Consumers can import these directly instead of adding a separate
