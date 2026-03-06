@@ -222,4 +222,88 @@ mod tests {
         let b = square_at(0.0, 0.0, 1.0);
         minkowski_sum_convex(&a, &b);
     }
+
+    // ---- Minkowski sum: mathematical invariants ----
+    //
+    // For convex polygons A and B:
+    //   1. A(A⊕B) ≥ A(A) + A(B)   (area lower bound)
+    //   2. A⊕B is convex
+    //   3. Two unit squares → 2×2 square (area = 4.0)
+    //
+    // Reference: de Berg et al. (2008), Computational Geometry, Theorem 13.5
+
+    #[test]
+    fn test_minkowski_area_lower_bound() {
+        // For any two convex polygons A, B:
+        //   A(A⊕B) ≥ A(A) + A(B)
+        // (equality holds only when one polygon is a point)
+        let polygons = [
+            (square_at(0.0, 0.0, 1.0), square_at(0.0, 0.0, 2.0)),
+            (
+                square_at(0.0, 0.0, 3.0),
+                vec![(0.0, 0.0), (1.0, 0.0), (0.5, 1.0)], // triangle
+            ),
+            (
+                vec![(0.0, 0.0), (4.0, 0.0), (2.0, 3.0)], // triangle
+                vec![(0.0, 0.0), (2.0, 0.0), (1.0, 2.0)], // triangle
+            ),
+        ];
+
+        for (a, b) in &polygons {
+            let sum = minkowski_sum_convex(a, b);
+            let area_sum = area(&sum);
+            let area_a = area(a);
+            let area_b = area(b);
+            assert!(
+                area_sum >= area_a + area_b - 1e-8,
+                "A(A⊕B)={area_sum} < A(A)+A(B)={} (lower bound violated)",
+                area_a + area_b
+            );
+        }
+    }
+
+    #[test]
+    fn test_minkowski_two_unit_squares_area_is_4() {
+        // A = unit square at (0,0), B = unit square at (0,0)
+        // A⊕B = 2×2 square → area = 4.0
+        let a = square_at(0.0, 0.0, 1.0);
+        let b = square_at(0.0, 0.0, 1.0);
+        let sum = minkowski_sum_convex(&a, &b);
+        let a_sum = area(&sum);
+        assert!(
+            (a_sum - 4.0).abs() < 1e-8,
+            "unit_square ⊕ unit_square area must be 4.0, got {a_sum}"
+        );
+    }
+
+    #[test]
+    fn test_minkowski_sum_is_convex() {
+        // Minkowski sum of two convex polygons must be convex.
+        let a = square_at(0.0, 0.0, 2.0);
+        let b = vec![(0.0, 0.0), (3.0, 0.0), (1.5, 2.0)];
+        let sum = minkowski_sum_convex(&a, &b);
+        assert!(
+            crate::robust::is_convex(&sum),
+            "Minkowski sum of convex polygons must be convex"
+        );
+    }
+
+    #[test]
+    fn test_minkowski_area_strictly_larger_than_inputs() {
+        // For two non-degenerate convex polygons, A(A⊕B) > max(A(A), A(B)).
+        let a = square_at(0.0, 0.0, 3.0);
+        let b = square_at(0.0, 0.0, 2.0);
+        let sum = minkowski_sum_convex(&a, &b);
+        let area_a = area(&a);
+        let area_b = area(&b);
+        let area_sum = area(&sum);
+        assert!(
+            area_sum > area_a,
+            "A(A⊕B)={area_sum} should exceed A(A)={area_a}"
+        );
+        assert!(
+            area_sum > area_b,
+            "A(A⊕B)={area_sum} should exceed A(B)={area_b}"
+        );
+    }
 }

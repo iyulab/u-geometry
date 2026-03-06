@@ -386,4 +386,85 @@ mod tests {
         let b = box3d(5.0, 5.0, 20.0, 10.0, 10.0, 10.0);
         assert!(!aabb3_overlap(&a, &b));
     }
+
+    // ---- SAT collision: invariants ----
+    //
+    // The Separating Axis Theorem guarantees:
+    //   - Separated polygons  → no collision
+    //   - Overlapping polygons → collision
+    //   - Fully contained     → collision
+    //   - Boundary touching   → no collision (within tolerance 1e-6)
+    //
+    // Reference: Ericson (2005), Real-Time Collision Detection, Ch. 4.4
+
+    #[test]
+    fn test_sat_separated_no_collision() {
+        // Two squares with a clear gap → never overlapping
+        let a = square(0.0, 0.0, 5.0);
+        let b = square(10.0, 0.0, 5.0); // gap of 5 units on x
+        assert!(
+            !polygons_overlap(&a, &b),
+            "clearly separated polygons must not overlap"
+        );
+    }
+
+    #[test]
+    fn test_sat_overlapping_collision() {
+        // Squares that share a 2×2 area
+        let a = square(0.0, 0.0, 6.0);
+        let b = square(4.0, 0.0, 6.0); // 2 units overlap in x
+        assert!(
+            polygons_overlap(&a, &b),
+            "overlapping polygons must report collision"
+        );
+    }
+
+    #[test]
+    fn test_sat_fully_contained_collision() {
+        // Small square fully inside large square
+        let outer = square(0.0, 0.0, 10.0);
+        let inner = square(3.0, 3.0, 3.0);
+        assert!(
+            polygons_overlap(&outer, &inner),
+            "fully contained polygon must report collision"
+        );
+        // Symmetric
+        assert!(
+            polygons_overlap(&inner, &outer),
+            "collision must be symmetric"
+        );
+    }
+
+    #[test]
+    fn test_sat_touching_boundary_no_collision() {
+        // Squares that share only an edge (no area overlap)
+        let a = square(0.0, 0.0, 5.0);
+        let b = square(5.0, 0.0, 5.0); // touching at x=5
+        assert!(
+            !polygons_overlap(&a, &b),
+            "boundary-touching polygons must not report collision (tolerance=1e-6)"
+        );
+    }
+
+    #[test]
+    fn test_sat_symmetry() {
+        // polygons_overlap(A, B) == polygons_overlap(B, A)
+        let a = square(0.0, 0.0, 7.0);
+        let b = square(5.0, 3.0, 7.0);
+        assert_eq!(
+            polygons_overlap(&a, &b),
+            polygons_overlap(&b, &a),
+            "collision detection must be symmetric"
+        );
+    }
+
+    #[test]
+    fn test_sat_self_overlap() {
+        // A polygon always overlaps with itself
+        let a = square(0.0, 0.0, 5.0);
+        assert!(
+            polygons_overlap(&a, &a),
+            "polygon must overlap with itself"
+        );
+    }
 }

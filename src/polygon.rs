@@ -324,6 +324,46 @@ mod tests {
 
     // ---- Area tests ----
 
+    // ---- Shoelace formula: reference values ----
+    //
+    // A = |Σ(x_i·y_{i+1} − x_{i+1}·y_i)| / 2
+    // Reference: Meister (1769), also known as the Gauss area formula.
+    //
+    // Exact integer-coordinate cases provide lossless f64 results.
+
+    #[test]
+    fn test_shoelace_unit_square_exact() {
+        // Unit square [(0,0),(1,0),(1,1),(0,1)] → A = 1.0 exactly
+        let unit_square = [(0.0_f64, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)];
+        let a = area(&unit_square);
+        assert!(
+            (a - 1.0).abs() < 1e-15,
+            "unit square area must be exactly 1.0, got {a}"
+        );
+    }
+
+    #[test]
+    fn test_shoelace_unit_triangle_exact() {
+        // Right triangle [(0,0),(1,0),(0,1)] → A = 0.5 exactly
+        let tri = [(0.0_f64, 0.0), (1.0, 0.0), (0.0, 1.0)];
+        let a = area(&tri);
+        assert!(
+            (a - 0.5).abs() < 1e-15,
+            "unit triangle area must be exactly 0.5, got {a}"
+        );
+    }
+
+    #[test]
+    fn test_shoelace_rectangle_exact() {
+        // Rectangle [(0,0),(3,0),(3,2),(0,2)] → A = 6.0 exactly
+        let rect = [(0.0_f64, 0.0), (3.0, 0.0), (3.0, 2.0), (0.0, 2.0)];
+        let a = area(&rect);
+        assert!(
+            (a - 6.0).abs() < 1e-15,
+            "3×2 rectangle area must be exactly 6.0, got {a}"
+        );
+    }
+
     #[test]
     fn test_signed_area_ccw_square() {
         let square = [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)];
