@@ -462,9 +462,6 @@ mod tests {
     fn test_sat_self_overlap() {
         // A polygon always overlaps with itself
         let a = square(0.0, 0.0, 5.0);
-        assert!(
-            polygons_overlap(&a, &a),
-            "polygon must overlap with itself"
-        );
+        assert!(polygons_overlap(&a, &a), "polygon must overlap with itself");
     }
 }
