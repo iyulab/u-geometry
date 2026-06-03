@@ -15,7 +15,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 nalgebra = "0.33"
-robust = "1.1"
+robust = "1.2"
 serde = { version = "1.0", features = ["derive"], optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
 serde-wasm-bindgen = { version = "0.6", optional = true }
