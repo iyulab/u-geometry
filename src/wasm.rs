@@ -31,20 +31,32 @@ impl Point2D {
     }
 }
 
-fn parse_points(js: JsValue) -> Result<Vec<Point2D>, JsValue> {
-    serde_wasm_bindgen::from_value(js).map_err(|e| JsValue::from_str(&e.to_string()))
+/// Deserialize a native JS value, rejecting JSON strings with an actionable
+/// message and prefixing the offending parameter name to any serde error.
+fn from_js<T: serde::de::DeserializeOwned>(value: JsValue, param: &str) -> Result<T, JsValue> {
+    if value.as_string().is_some() {
+        return Err(JsValue::from_str(&format!(
+            "{param}: expected a native JS object/array, got a string — \
+             pass the value directly, not JSON.stringify(...)"
+        )));
+    }
+    serde_wasm_bindgen::from_value(value).map_err(|e| JsValue::from_str(&format!("{param}: {e}")))
+}
+
+fn parse_points(js: JsValue, param: &str) -> Result<Vec<Point2D>, JsValue> {
+    from_js(js, param)
 }
 
 /// Computes the unsigned area of a simple polygon.
 ///
 /// # Arguments
-/// - `points_json`: JSON array of `{"x": f64, "y": f64}` objects
+/// - `points`: native array of `{"x": f64, "y": f64}` objects
 ///
 /// # Returns
 /// Area as a non-negative `f64`.
 #[wasm_bindgen]
-pub fn polygon_area(points_json: JsValue) -> Result<f64, JsValue> {
-    let points = parse_points(points_json)?;
+pub fn polygon_area(points: JsValue) -> Result<f64, JsValue> {
+    let points = parse_points(points, "points")?;
     let tuples: Vec<(f64, f64)> = points.iter().map(|p| p.to_tuple()).collect();
     Ok(crate::polygon::area(&tuples))
 }
@@ -52,13 +64,13 @@ pub fn polygon_area(points_json: JsValue) -> Result<f64, JsValue> {
 /// Computes the convex hull of a set of points (Graham scan, CCW order).
 ///
 /// # Arguments
-/// - `points_json`: JSON array of `{"x": f64, "y": f64}` objects
+/// - `points`: native array of `{"x": f64, "y": f64}` objects
 ///
 /// # Returns
-/// JSON array of hull points in CCW order, same `{"x", "y"}` format.
+/// Array of hull points in CCW order, same `{"x", "y"}` format.
 #[wasm_bindgen]
-pub fn convex_hull(points_json: JsValue) -> Result<JsValue, JsValue> {
-    let points = parse_points(points_json)?;
+pub fn convex_hull(points: JsValue) -> Result<JsValue, JsValue> {
+    let points = parse_points(points, "points")?;
     let tuples: Vec<(f64, f64)> = points.iter().map(|p| p.to_tuple()).collect();
     let hull = crate::polygon::convex_hull(&tuples);
     let result: Vec<Point2D> = hull.into_iter().map(Point2D::from_tuple).collect();
@@ -70,16 +82,15 @@ pub fn convex_hull(points_json: JsValue) -> Result<JsValue, JsValue> {
 /// Uses the ray-casting (winding-number) test.
 ///
 /// # Arguments
-/// - `point_json`: `{"x": f64, "y": f64}`
-/// - `polygon_json`: JSON array of `{"x": f64, "y": f64}` objects
+/// - `point`: native `{"x": f64, "y": f64}` object
+/// - `polygon`: native array of `{"x": f64, "y": f64}` objects
 ///
 /// # Returns
 /// `true` if the point is inside or on the boundary.
 #[wasm_bindgen]
-pub fn point_in_polygon(point_json: JsValue, polygon_json: JsValue) -> Result<bool, JsValue> {
-    let pt: Point2D = serde_wasm_bindgen::from_value(point_json)
-        .map_err(|e| JsValue::from_str(&e.to_string()))?;
-    let polygon = parse_points(polygon_json)?;
+pub fn point_in_polygon(point: JsValue, polygon: JsValue) -> Result<bool, JsValue> {
+    let pt: Point2D = from_js(point, "point")?;
+    let polygon = parse_points(polygon, "polygon")?;
     let tuples: Vec<(f64, f64)> = polygon.iter().map(|p| p.to_tuple()).collect();
     Ok(crate::polygon::contains_point(&tuples, pt.to_tuple()))
 }
