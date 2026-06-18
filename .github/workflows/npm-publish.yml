@@ -21,6 +21,8 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: false
       - uses: jetli/wasm-pack-action@v0.4.0
       - run: wasm-pack build --target bundler --scope iyulab --features wasm
       - uses: actions/setup-node@v4
