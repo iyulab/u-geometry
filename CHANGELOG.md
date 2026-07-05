@@ -8,6 +8,22 @@ Maintained from 0.1.1 onward; earlier entries list release dates only (see git h
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-07-05
+
+### Fixed
+
+- **npm packaging — Node-compatible entry.** The npm package previously
+  shipped only the wasm-bindgen *bundler*-target output, whose static
+  `.wasm` import fails on Node's CJS path (`tsx`/`ts-node` in non-ESM
+  packages) with an opaque `SyntaxError: Invalid or unexpected token`.
+  The package now additionally ships the *nodejs*-target CJS glue under
+  `node/` and routes Node consumers to it via a conditional `exports`
+  map (`node` → CJS with filesystem wasm loading, `default` → bundler
+  ESM). `require()`, native ESM `import`, and CJS TS runners all work
+  without loader hooks. A pre-publish smoke test (CJS `require` + ESM
+  `import`) now guards this path in CI. Rust API unchanged.
+
+
 ## [0.1.1] - 2026-06-10
 
 ### Changed

@@ -83,6 +83,19 @@ cargo bench  # criterion benchmarks
 
 MIT License — see [LICENSE](LICENSE).
 
+## npm (WebAssembly)
+
+```bash
+npm install @iyulab/u-geometry
+```
+
+The package resolves per environment via a conditional `exports` map:
+
+| Environment | Entry |
+|---|---|
+| Bundlers (webpack, Vite, …) | ESM + WebAssembly ESM-integration (`default` condition) |
+| Node.js — `require()`, ESM `import`, CJS TS runners (`tsx`, `ts-node`) | CJS glue loading the wasm from the filesystem (`node` condition) — no loader hooks or flags |
+
 ## Related
 
 - [u-numflow](https://github.com/iyulab/u-numflow) — Mathematical primitives
