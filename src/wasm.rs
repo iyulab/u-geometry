@@ -21,6 +21,13 @@ struct Point2D {
     y: f64,
 }
 
+/// Axis-aligned bounding box, serialized as `{"min": {x, y}, "max": {x, y}}`.
+#[derive(Serialize, Deserialize)]
+struct Aabb {
+    min: Point2D,
+    max: Point2D,
+}
+
 impl Point2D {
     fn to_tuple(&self) -> (f64, f64) {
         (self.x, self.y)
@@ -93,4 +100,83 @@ pub fn point_in_polygon(point: JsValue, polygon: JsValue) -> Result<bool, JsValu
     let polygon = parse_points(polygon, "polygon")?;
     let tuples: Vec<(f64, f64)> = polygon.iter().map(|p| p.to_tuple()).collect();
     Ok(crate::polygon::contains_point(&tuples, pt.to_tuple()))
+}
+
+/// Tests whether two **simple polygons** (convex or concave) overlap.
+///
+/// Exact for concave shapes: two polygons that merely abut (share an edge or a
+/// vertex) do **not** count as overlapping, and a part nested inside another's
+/// concave notch is correctly reported as *not* overlapping. Use this rather
+/// than a convex-hull (SAT) test for nesting/packing self-checks.
+///
+/// # Arguments
+/// - `poly_a`: native array of `{"x": f64, "y": f64}` objects
+/// - `poly_b`: native array of `{"x": f64, "y": f64}` objects
+///
+/// # Returns
+/// `true` if the polygon interiors overlap; `false` when disjoint or merely touching.
+#[wasm_bindgen]
+pub fn polygons_intersect(poly_a: JsValue, poly_b: JsValue) -> Result<bool, JsValue> {
+    let a = parse_points(poly_a, "poly_a")?;
+    let b = parse_points(poly_b, "poly_b")?;
+    let ta: Vec<(f64, f64)> = a.iter().map(|p| p.to_tuple()).collect();
+    let tb: Vec<(f64, f64)> = b.iter().map(|p| p.to_tuple()).collect();
+    Ok(crate::collision::polygons_intersect(&ta, &tb))
+}
+
+/// Computes the axis-aligned bounding box of a set of points.
+///
+/// # Arguments
+/// - `points`: native array of `{"x": f64, "y": f64}` objects (must be non-empty)
+///
+/// # Returns
+/// `{"min": {x, y}, "max": {x, y}}`, or an error if `points` is empty.
+#[wasm_bindgen]
+pub fn polygon_bounds(points: JsValue) -> Result<JsValue, JsValue> {
+    let points = parse_points(points, "points")?;
+    if points.is_empty() {
+        return Err(JsValue::from_str("points: expected a non-empty array"));
+    }
+    let mut min_x = points[0].x;
+    let mut min_y = points[0].y;
+    let mut max_x = points[0].x;
+    let mut max_y = points[0].y;
+    for p in points.iter().skip(1) {
+        min_x = min_x.min(p.x);
+        min_y = min_y.min(p.y);
+        max_x = max_x.max(p.x);
+        max_y = max_y.max(p.y);
+    }
+    let aabb = Aabb {
+        min: Point2D { x: min_x, y: min_y },
+        max: Point2D { x: max_x, y: max_y },
+    };
+    serde_wasm_bindgen::to_value(&aabb).map_err(|e| JsValue::from_str(&e.to_string()))
+}
+
+/// Applies a rigid 2D transform (rotation about the origin, then translation)
+/// to a set of points.
+///
+/// This is a pure isometry: `angle` is in **radians** and there is no reflection.
+/// Domain-specific conventions (degrees, mirroring/flip, a different pivot) are
+/// the caller's responsibility — compose them before/after this call.
+///
+/// # Arguments
+/// - `points`: native array of `{"x": f64, "y": f64}` objects
+/// - `tx`, `ty`: translation applied after rotation
+/// - `angle`: rotation angle in radians (counter-clockwise)
+///
+/// # Returns
+/// Array of transformed points in the same `{"x", "y"}` format.
+#[wasm_bindgen]
+pub fn transform_points(points: JsValue, tx: f64, ty: f64, angle: f64) -> Result<JsValue, JsValue> {
+    let points = parse_points(points, "points")?;
+    let tuples: Vec<(f64, f64)> = points.iter().map(|p| p.to_tuple()).collect();
+    let t = crate::transform::Transform2D::new(tx, ty, angle);
+    let out: Vec<Point2D> = t
+        .apply_points(&tuples)
+        .into_iter()
+        .map(Point2D::from_tuple)
+        .collect();
+    serde_wasm_bindgen::to_value(&out).map_err(|e| JsValue::from_str(&e.to_string()))
 }

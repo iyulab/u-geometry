@@ -12,7 +12,9 @@
 //! - Gottschalk, Lin, Manocha (1996), "OBB-Tree: A Hierarchical Structure
 //!   for Rapid Interference Detection"
 
+use crate::polygon::contains_point;
 use crate::primitives::{AABB2, AABB3};
+use crate::robust::orient2d;
 
 /// Checks if two convex polygons overlap using the Separating Axis Theorem.
 ///
@@ -20,7 +22,10 @@ use crate::primitives::{AABB2, AABB3};
 /// Uses a tolerance to allow touching without reporting overlap.
 ///
 /// For concave polygons, this tests the convex hull — it may produce
-/// false positives but never false negatives.
+/// false positives but never false negatives. When exact overlap on
+/// **concave** simple polygons is required (e.g. nesting/packing checks
+/// where a part nested inside another's notch must *not* be reported),
+/// use [`polygons_intersect`] instead.
 ///
 /// # Complexity
 /// O(n + m) where n, m are vertex counts
@@ -29,6 +34,138 @@ use crate::primitives::{AABB2, AABB3};
 /// Ericson (2005), Real-Time Collision Detection, Ch. 4.4
 pub fn polygons_overlap(poly_a: &[(f64, f64)], poly_b: &[(f64, f64)]) -> bool {
     polygons_overlap_with_tolerance(poly_a, poly_b, 1e-6)
+}
+
+/// Exact overlap test for two **simple polygons**, convex *or concave*.
+///
+/// Unlike [`polygons_overlap`] (SAT), which tests each input's *convex hull*
+/// and therefore over-reports for concave shapes, this predicate respects the
+/// true boundaries. It reports `true` iff the polygons' boundaries properly
+/// cross **or** one polygon's interior overlaps the other's.
+///
+/// Touching without penetrating — shared edges or vertices — is **not**
+/// overlap: edge crossings use a strict (proper) intersection test, and the
+/// interior test samples points with strict-interior (open) point location, so
+/// a boundary-only contact is excluded. This matches the semantics required by
+/// nesting/packing self-checks, where parts that merely abut must not be flagged.
+///
+/// The interior test samples each polygon's vertices *and edge midpoints*; the
+/// midpoints catch area overlaps along collinear edges that no vertex reveals
+/// (e.g. two axis-aligned rectangles overlapping in a strip). Holes are not
+/// considered (outer boundaries only).
+///
+/// # Limitation
+/// Interior sampling is finite: a pathological overlap that contains no sampled
+/// point and crosses no edge transversally could be missed. For the polygons
+/// that arise in nesting/packing this does not occur; an exact clipping-based
+/// area intersection would remove the theoretical gap at higher cost.
+///
+/// # Complexity
+/// O(n · m) where n, m are vertex counts (broad-phase AABB reject first).
+///
+/// # Reference
+/// O'Rourke (1998), "Computational Geometry in C", Ch. 7 — segment
+/// intersection and point-in-polygon.
+pub fn polygons_intersect(poly_a: &[(f64, f64)], poly_b: &[(f64, f64)]) -> bool {
+    if poly_a.len() < 3 || poly_b.len() < 3 {
+        return false;
+    }
+
+    // Broad phase: disjoint bounding boxes cannot overlap.
+    if let (Some(aabb_a), Some(aabb_b)) = (aabb_from_tuples(poly_a), aabb_from_tuples(poly_b)) {
+        if !aabb_a.intersects(&aabb_b) {
+            return false;
+        }
+    }
+
+    // Narrow phase 1: any pair of edges properly crosses → overlap.
+    let n = poly_a.len();
+    let m = poly_b.len();
+    for i in 0..n {
+        let a0 = poly_a[i];
+        let a1 = poly_a[(i + 1) % n];
+        for j in 0..m {
+            let b0 = poly_b[j];
+            let b1 = poly_b[(j + 1) % m];
+            if segments_properly_intersect(a0, a1, b0, b1) {
+                return true;
+            }
+        }
+    }
+
+    // Narrow phase 2: no boundary crossing → the polygons are either disjoint or
+    // one region lies inside the other. A strict-interior sample point of one
+    // polygon inside the other proves overlap; a merely-touching point lies on
+    // the boundary and is excluded. Sampling vertices *and* edge midpoints lets
+    // this catch collinear-edge strip overlaps that no vertex would reveal.
+    if any_interior_sample_inside(poly_a, poly_b) || any_interior_sample_inside(poly_b, poly_a) {
+        return true;
+    }
+
+    false
+}
+
+/// Returns `true` if any vertex or edge-midpoint of `probe` lies strictly
+/// inside `target` (open interior, boundary excluded).
+fn any_interior_sample_inside(probe: &[(f64, f64)], target: &[(f64, f64)]) -> bool {
+    let n = probe.len();
+    for i in 0..n {
+        let a = probe[i];
+        if strictly_inside(a, target) {
+            return true;
+        }
+        let b = probe[(i + 1) % n];
+        let mid = ((a.0 + b.0) * 0.5, (a.1 + b.1) * 0.5);
+        if strictly_inside(mid, target) {
+            return true;
+        }
+    }
+    false
+}
+
+/// Proper (strict) segment intersection: `true` only when the two open segments
+/// cross transversally. Shared endpoints and collinear overlaps do **not**
+/// count. Uses exact orientation predicates (Shewchuk) for robustness.
+fn segments_properly_intersect(
+    a0: (f64, f64),
+    a1: (f64, f64),
+    b0: (f64, f64),
+    b1: (f64, f64),
+) -> bool {
+    let d1 = orient2d(b0, b1, a0);
+    let d2 = orient2d(b0, b1, a1);
+    let d3 = orient2d(a0, a1, b0);
+    let d4 = orient2d(a0, a1, b1);
+
+    let a_straddles_b = (d1.is_ccw() && d2.is_cw()) || (d1.is_cw() && d2.is_ccw());
+    let b_straddles_a = (d3.is_ccw() && d4.is_cw()) || (d3.is_cw() && d4.is_ccw());
+    a_straddles_b && b_straddles_a
+}
+
+/// Tests whether `point` lies in the **open interior** of a simple polygon —
+/// strictly inside, excluding the boundary. Combines the boundary-inclusive
+/// winding test with an explicit on-boundary rejection.
+fn strictly_inside(point: (f64, f64), polygon: &[(f64, f64)]) -> bool {
+    contains_point(polygon, point) && !point_on_boundary(point, polygon)
+}
+
+/// Tests whether `point` lies on any edge of the polygon (collinear with the
+/// edge and within its extent).
+fn point_on_boundary(point: (f64, f64), polygon: &[(f64, f64)]) -> bool {
+    let n = polygon.len();
+    for i in 0..n {
+        let a = polygon[i];
+        let b = polygon[(i + 1) % n];
+        if orient2d(a, b, point).is_collinear()
+            && point.0 >= a.0.min(b.0)
+            && point.0 <= a.0.max(b.0)
+            && point.1 >= a.1.min(b.1)
+            && point.1 <= a.1.max(b.1)
+        {
+            return true;
+        }
+    }
+    false
 }
 
 /// SAT overlap test with configurable tolerance.
@@ -318,6 +455,112 @@ mod tests {
 
         let c = AABB2::new(20.0, 20.0, 30.0, 30.0);
         assert!(!aabb_overlap(&a, &c));
+    }
+
+    // ============ Exact (concave-correct) polygon intersection ============
+
+    /// L-shaped concave polygon: bottom row (y 0–1) plus left column (x 0–1),
+    /// leaving a concave notch over x∈(1,3), y∈(1,3).
+    fn l_shape() -> Vec<(f64, f64)> {
+        vec![
+            (0.0, 0.0),
+            (3.0, 0.0),
+            (3.0, 1.0),
+            (1.0, 1.0),
+            (1.0, 3.0),
+            (0.0, 3.0),
+        ]
+    }
+
+    #[test]
+    fn test_intersect_crossing_squares() {
+        let a = square(0.0, 0.0, 10.0);
+        let b = square(5.0, 5.0, 10.0);
+        assert!(polygons_intersect(&a, &b));
+    }
+
+    #[test]
+    fn test_intersect_separated() {
+        let a = square(0.0, 0.0, 10.0);
+        let b = square(20.0, 0.0, 10.0);
+        assert!(!polygons_intersect(&a, &b));
+    }
+
+    #[test]
+    fn test_intersect_abutting_shared_edge_is_not_overlap() {
+        // Squares sharing the edge x=10 abut but do not penetrate.
+        let a = square(0.0, 0.0, 10.0);
+        let b = square(10.0, 0.0, 10.0);
+        assert!(!polygons_intersect(&a, &b));
+    }
+
+    #[test]
+    fn test_intersect_fully_contained() {
+        let a = square(0.0, 0.0, 10.0);
+        let b = square(2.0, 2.0, 3.0);
+        assert!(polygons_intersect(&a, &b));
+        assert!(polygons_intersect(&b, &a)); // symmetric
+    }
+
+    #[test]
+    fn test_intersect_collinear_strip_overlap() {
+        // Two axis-aligned rectangles overlapping in the strip x∈[1,2]; the
+        // vertical edges are collinear so no vertex is strictly interior — an
+        // edge-midpoint sample is what reveals the overlap.
+        let a = vec![(0.0, 0.0), (2.0, 0.0), (2.0, 2.0), (0.0, 2.0)];
+        let b = vec![(1.0, 0.0), (3.0, 0.0), (3.0, 2.0), (1.0, 2.0)];
+        assert!(polygons_intersect(&a, &b));
+    }
+
+    #[test]
+    fn test_intersect_concave_notch_not_overlap() {
+        // A square resting in the L's concave notch does NOT overlap it — but
+        // SAT (convex-hull) *does* report overlap. This is the raison d'être of
+        // polygons_intersect over polygons_overlap.
+        let l = l_shape();
+        let peg = square(1.2, 1.2, 0.5); // fully inside the notch, outside the L
+        assert!(polygons_overlap(&l, &peg), "SAT over-reports (convex hull)");
+        assert!(
+            !polygons_intersect(&l, &peg),
+            "exact test must not flag a part nested in the notch"
+        );
+        assert!(!polygons_intersect(&peg, &l));
+    }
+
+    #[test]
+    fn test_intersect_concave_real_overlap() {
+        // A square straddling the L's inner corner genuinely overlaps.
+        let l = l_shape();
+        let peg = square(0.5, 0.5, 1.0);
+        assert!(polygons_intersect(&l, &peg));
+    }
+
+    #[test]
+    fn test_intersect_degenerate() {
+        let a = vec![(0.0, 0.0), (1.0, 0.0)]; // not a polygon
+        let b = square(0.0, 0.0, 10.0);
+        assert!(!polygons_intersect(&a, &b));
+    }
+
+    proptest::proptest! {
+        /// Overlap is a symmetric relation for any two polygons.
+        #[test]
+        fn prop_intersect_symmetric(
+            ax in -5.0f64..5.0, ay in -5.0f64..5.0, asz in 0.5f64..5.0,
+            bx in -5.0f64..5.0, by in -5.0f64..5.0, bsz in 0.5f64..5.0,
+        ) {
+            let a = square(ax, ay, asz);
+            let b = square(bx, by, bsz);
+            proptest::prop_assert_eq!(polygons_intersect(&a, &b), polygons_intersect(&b, &a));
+        }
+
+        /// Polygons pushed far apart never overlap.
+        #[test]
+        fn prop_intersect_far_apart_disjoint(sz in 0.5f64..5.0, gap in 100.0f64..200.0) {
+            let a = square(0.0, 0.0, sz);
+            let b = square(gap, 0.0, sz);
+            proptest::prop_assert!(!polygons_intersect(&a, &b));
+        }
     }
 
     // ======================== 3D Collision Tests ========================

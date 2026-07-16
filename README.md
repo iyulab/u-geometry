@@ -96,6 +96,47 @@ The package resolves per environment via a conditional `exports` map:
 | Bundlers (webpack, Vite, …) | ESM + WebAssembly ESM-integration (`default` condition) |
 | Node.js — `require()`, ESM `import`, CJS TS runners (`tsx`, `ts-node`) | CJS glue loading the wasm from the filesystem (`node` condition) — no loader hooks or flags |
 
+### API
+
+All functions take **native JS objects/arrays** (not JSON strings). A point is
+`{ "x": number, "y": number }`; a polygon is an array of points.
+
+| Function | Signature | Returns |
+|---|---|---|
+| `polygon_area(points)` | `Point[] → number` | Unsigned area of a simple polygon |
+| `convex_hull(points)` | `Point[] → Point[]` | Convex hull, CCW order |
+| `point_in_polygon(point, polygon)` | `(Point, Point[]) → boolean` | Point inside or on boundary |
+| `polygons_intersect(polyA, polyB)` | `(Point[], Point[]) → boolean` | Exact overlap for **convex or concave** polygons |
+| `polygon_bounds(points)` | `Point[] → AABB` | Axis-aligned bounding box |
+| `transform_points(points, tx, ty, angle)` | `(Point[], number, number, number) → Point[]` | Rigid transform (rotation in **radians** about origin, then translate) |
+
+```js
+import init, {
+  polygons_intersect, polygon_bounds, transform_points,
+} from '@iyulab/u-geometry';
+await init();
+
+const a = [{x:0,y:0},{x:2,y:0},{x:2,y:2},{x:0,y:2}];
+const b = [{x:1,y:1},{x:3,y:1},{x:3,y:3},{x:1,y:3}];
+
+polygons_intersect(a, b);              // true  — interiors overlap
+polygon_bounds(a);                     // { min:{x:0,y:0}, max:{x:2,y:2} }
+transform_points(a, 10, 5, Math.PI/2); // a rotated 90° CCW, then translated by (10,5)
+```
+
+**Semantics of `polygons_intersect`** — exact for simple polygons, convex or
+concave. Polygons that merely abut (share an edge or vertex) are **not**
+overlapping, and a part nested inside another's concave notch is correctly
+reported as *not* overlapping — unlike a convex-hull (SAT) test. Ideal for
+nesting/packing placement self-checks. Holes are not considered.
+
+**JSON schema**
+
+```
+Point ::= { "x": number, "y": number }
+AABB  ::= { "min": Point, "max": Point }
+```
+
 ## Related
 
 - [u-numflow](https://github.com/iyulab/u-numflow) — Mathematical primitives

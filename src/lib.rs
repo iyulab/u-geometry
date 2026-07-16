@@ -11,8 +11,9 @@
 //! - **`polygon`**: Polygon operations — area, centroid, convex hull, winding
 //! - **`transform`**: Rigid transformations — `Transform2D`, `Transform3D`
 //! - **`robust`**: Numerically robust geometric predicates (Shewchuk)
-//! - **`collision`**: SAT-based collision detection (2D convex polygons), AABB
-//!   overlap (2D and 3D)
+//! - **`collision`**: collision detection — SAT for convex polygons, exact
+//!   overlap for concave simple polygons (`polygons_intersect`), AABB overlap
+//!   (2D and 3D)
 //! - **`minkowski`**: Minkowski sum and NFP for convex polygons
 //! - **`spatial_index`**: Linear-scan spatial indices for 2D and 3D AABB queries
 //!

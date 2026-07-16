@@ -1131,7 +1131,7 @@ mod tests {
 
         #[test]
         fn test_point2_roundtrip() {
-            let p = Point2::new(3.14, 2.72);
+            let p = Point2::new(3.25, 2.72);
             let json = serde_json::to_string(&p).unwrap();
             let p2: Point2 = serde_json::from_str(&json).unwrap();
             assert_eq!(p, p2);
