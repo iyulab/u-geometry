@@ -8,6 +8,12 @@ Maintained from 0.1.1 onward; earlier entries list release dates only (see git h
 
 ## [Unreleased]
 
+### Changed
+
+- Bump `nalgebra` dependency from 0.33 to 0.35 (dependency freshness sweep).
+  No API changes required — `Point`/`Matrix` usage is unaffected across the
+  two minor versions.
+
 ## [0.1.3] - 2026-07-05
 
 ### Fixed

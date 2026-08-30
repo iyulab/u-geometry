@@ -14,7 +14,7 @@ categories = ["algorithms", "mathematics"]
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-nalgebra = "0.33"
+nalgebra = "0.35"
 robust = "1.2"
 serde = { version = "1.0", features = ["derive"], optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
