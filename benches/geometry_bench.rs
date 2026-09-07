@@ -3,7 +3,8 @@
 //! Covers polygon operations, collision detection, spatial indexing,
 //! Minkowski sum/NFP, and robust predicates.
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use std::hint::black_box;
 use u_geometry::collision;
 use u_geometry::minkowski;
 use u_geometry::polygon;
