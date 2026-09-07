@@ -1,8 +1,7 @@
 //! Domain-agnostic computational geometry library.
 //!
 //! Provides fundamental geometric primitives (2D and 3D), transformations,
-//! polygon operations, collision detection, and spatial indexing for the
-//! U-Engine ecosystem.
+//! polygon operations, collision detection, and spatial indexing.
 //!
 //! # Modules
 //!
@@ -19,9 +18,9 @@
 //!
 //! # Architecture
 //!
-//! This crate sits at Layer 2 (Algorithms) in the U-Engine ecosystem.
-//! It contains no domain-specific concepts — nesting, packing, scheduling, etc.
-//! are all defined by consumers at higher layers.
+//! This crate is a general-purpose geometry layer: it contains no
+//! domain-specific concepts — nesting, packing, scheduling and the like are
+//! defined by whatever consumes it.
 //!
 //! # References
 //!
