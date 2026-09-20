@@ -15,14 +15,14 @@
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, tsify::Tsify)]
 struct Point2D {
     x: f64,
     y: f64,
 }
 
 /// Axis-aligned bounding box, serialized as `{"min": {x, y}, "max": {x, y}}`.
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, tsify::Tsify)]
 struct Aabb {
     min: Point2D,
     max: Point2D,
@@ -75,7 +75,7 @@ pub fn polygon_area(points: JsValue) -> Result<f64, JsValue> {
 ///
 /// # Returns
 /// Array of hull points in CCW order, same `{"x", "y"}` format.
-#[wasm_bindgen]
+#[wasm_bindgen(unchecked_return_type = "Point2D[]")]
 pub fn convex_hull(points: JsValue) -> Result<JsValue, JsValue> {
     let points = parse_points(points, "points")?;
     let tuples: Vec<(f64, f64)> = points.iter().map(|p| p.to_tuple()).collect();
@@ -131,7 +131,7 @@ pub fn polygons_intersect(poly_a: JsValue, poly_b: JsValue) -> Result<bool, JsVa
 ///
 /// # Returns
 /// `{"min": {x, y}, "max": {x, y}}`, or an error if `points` is empty.
-#[wasm_bindgen]
+#[wasm_bindgen(unchecked_return_type = "Aabb")]
 pub fn polygon_bounds(points: JsValue) -> Result<JsValue, JsValue> {
     let points = parse_points(points, "points")?;
     if points.is_empty() {
@@ -168,7 +168,7 @@ pub fn polygon_bounds(points: JsValue) -> Result<JsValue, JsValue> {
 ///
 /// # Returns
 /// Array of transformed points in the same `{"x", "y"}` format.
-#[wasm_bindgen]
+#[wasm_bindgen(unchecked_return_type = "Point2D[]")]
 pub fn transform_points(points: JsValue, tx: f64, ty: f64, angle: f64) -> Result<JsValue, JsValue> {
     let points = parse_points(points, "points")?;
     let tuples: Vec<(f64, f64)> = points.iter().map(|p| p.to_tuple()).collect();

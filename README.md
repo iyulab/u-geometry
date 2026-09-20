@@ -96,6 +96,23 @@ The package resolves per environment via a conditional `exports` map:
 | Bundlers (webpack, Vite, …) | ESM + WebAssembly ESM-integration (`default` condition) |
 | Node.js — `require()`, ESM `import`, CJS TS runners (`tsx`, `ts-node`) | CJS glue loading the wasm from the filesystem (`node` condition) — no loader hooks or flags |
 
+### TypeScript
+
+Every exported function declares its return type, and the declarations are
+generated from the same structs the binding serialises, so they cannot drift
+from what it actually returns:
+
+```ts
+export function convex_hull(points: any): Point2D[];
+```
+
+An absent optional value is declared `T | undefined`, which is what the binding
+sends. Nothing needs an `as` cast -- and a wrong assumption about a result's
+shape is a compile error rather than something that fails at run time.
+
+Inputs are still `any`: they are validated at the boundary, and a rejected one
+says what was wrong.
+
 ### API
 
 All functions take **native JS objects/arrays** (not JSON strings). A point is
