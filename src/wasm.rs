@@ -62,7 +62,9 @@ fn parse_points(js: JsValue, param: &str) -> Result<Vec<Point2D>, JsValue> {
 /// # Returns
 /// Area as a non-negative `f64`.
 #[wasm_bindgen]
-pub fn polygon_area(points: JsValue) -> Result<f64, JsValue> {
+pub fn polygon_area(
+    #[wasm_bindgen(unchecked_param_type = "Point2D[]")] points: JsValue,
+) -> Result<f64, JsValue> {
     let points = parse_points(points, "points")?;
     let tuples: Vec<(f64, f64)> = points.iter().map(|p| p.to_tuple()).collect();
     Ok(crate::polygon::area(&tuples))
@@ -76,7 +78,9 @@ pub fn polygon_area(points: JsValue) -> Result<f64, JsValue> {
 /// # Returns
 /// Array of hull points in CCW order, same `{"x", "y"}` format.
 #[wasm_bindgen(unchecked_return_type = "Point2D[]")]
-pub fn convex_hull(points: JsValue) -> Result<JsValue, JsValue> {
+pub fn convex_hull(
+    #[wasm_bindgen(unchecked_param_type = "Point2D[]")] points: JsValue,
+) -> Result<JsValue, JsValue> {
     let points = parse_points(points, "points")?;
     let tuples: Vec<(f64, f64)> = points.iter().map(|p| p.to_tuple()).collect();
     let hull = crate::polygon::convex_hull(&tuples);
@@ -95,7 +99,10 @@ pub fn convex_hull(points: JsValue) -> Result<JsValue, JsValue> {
 /// # Returns
 /// `true` if the point is inside or on the boundary.
 #[wasm_bindgen]
-pub fn point_in_polygon(point: JsValue, polygon: JsValue) -> Result<bool, JsValue> {
+pub fn point_in_polygon(
+    #[wasm_bindgen(unchecked_param_type = "Point2D")] point: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "Point2D[]")] polygon: JsValue,
+) -> Result<bool, JsValue> {
     let pt: Point2D = from_js(point, "point")?;
     let polygon = parse_points(polygon, "polygon")?;
     let tuples: Vec<(f64, f64)> = polygon.iter().map(|p| p.to_tuple()).collect();
@@ -116,7 +123,10 @@ pub fn point_in_polygon(point: JsValue, polygon: JsValue) -> Result<bool, JsValu
 /// # Returns
 /// `true` if the polygon interiors overlap; `false` when disjoint or merely touching.
 #[wasm_bindgen]
-pub fn polygons_intersect(poly_a: JsValue, poly_b: JsValue) -> Result<bool, JsValue> {
+pub fn polygons_intersect(
+    #[wasm_bindgen(unchecked_param_type = "Point2D[]")] poly_a: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "Point2D[]")] poly_b: JsValue,
+) -> Result<bool, JsValue> {
     let a = parse_points(poly_a, "poly_a")?;
     let b = parse_points(poly_b, "poly_b")?;
     let ta: Vec<(f64, f64)> = a.iter().map(|p| p.to_tuple()).collect();
@@ -132,7 +142,9 @@ pub fn polygons_intersect(poly_a: JsValue, poly_b: JsValue) -> Result<bool, JsVa
 /// # Returns
 /// `{"min": {x, y}, "max": {x, y}}`, or an error if `points` is empty.
 #[wasm_bindgen(unchecked_return_type = "Aabb")]
-pub fn polygon_bounds(points: JsValue) -> Result<JsValue, JsValue> {
+pub fn polygon_bounds(
+    #[wasm_bindgen(unchecked_param_type = "Point2D[]")] points: JsValue,
+) -> Result<JsValue, JsValue> {
     let points = parse_points(points, "points")?;
     if points.is_empty() {
         return Err(JsValue::from_str("points: expected a non-empty array"));
@@ -169,7 +181,12 @@ pub fn polygon_bounds(points: JsValue) -> Result<JsValue, JsValue> {
 /// # Returns
 /// Array of transformed points in the same `{"x", "y"}` format.
 #[wasm_bindgen(unchecked_return_type = "Point2D[]")]
-pub fn transform_points(points: JsValue, tx: f64, ty: f64, angle: f64) -> Result<JsValue, JsValue> {
+pub fn transform_points(
+    #[wasm_bindgen(unchecked_param_type = "Point2D[]")] points: JsValue,
+    tx: f64,
+    ty: f64,
+    angle: f64,
+) -> Result<JsValue, JsValue> {
     let points = parse_points(points, "points")?;
     let tuples: Vec<(f64, f64)> = points.iter().map(|p| p.to_tuple()).collect();
     let t = crate::transform::Transform2D::new(tx, ty, angle);

@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Maintained from 0.1.1 onward; earlier entries list release dates only (see git history).
 
+## [Unreleased]
+
+### Changed
+
+- **Every exported WASM function declares its parameter types.** Inputs were
+  typed `any`, so a point given as `[x, y]` instead of `{ x, y }` compiled and
+  failed at run time. Points are `Point2D` and polygons `Point2D[]`.
+  **TypeScript code that passed a wrong shape now fails to compile**; the
+  runtime path is unchanged.
+- The publishing workflow now also fails if an exported function takes a
+  parameter typed `any` (`check-typed-dts.sh --params`).
+
 ## [0.1.6] - 2026-09-20
 
 ### Added
