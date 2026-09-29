@@ -8,6 +8,8 @@ Maintained from 0.1.1 onward; earlier entries list release dates only (see git h
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-29
+
 ### Changed
 
 - **Every exported WASM function declares its parameter types.** Inputs were
@@ -16,7 +18,7 @@ Maintained from 0.1.1 onward; earlier entries list release dates only (see git h
   **TypeScript code that passed a wrong shape now fails to compile**; the
   runtime path is unchanged.
 - The publishing workflow now also fails if an exported function takes a
-  parameter typed `any` (`check-typed-dts.sh --params`).
+  parameter typed `any` (`check-typed-dts.sh`).
 
 ## [0.1.6] - 2026-09-20
 
