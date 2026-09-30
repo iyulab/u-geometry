@@ -21,6 +21,12 @@ Maintained from 0.1.1 onward; earlier entries list release dates only (see git h
   is imported, in Node and in bundlers alike -- so the example threw
   `init is not a function` on its first line. It now imports the functions
   directly.
+- The README's Rust example did not compile: `polygon::Polygon2D` and
+  `collision::sat_overlap` do not exist and `AABB2::new` takes four numbers.
+  It now uses the polygon functions over `(x, y)` slices. The Quick Start
+  pointed at the git repository instead of the published crate.
+  The README's Rust examples are now compiled and run with the doc-tests,
+  so an example that stops matching the API fails CI.
 
 ## [0.2.0] - 2026-09-29
 

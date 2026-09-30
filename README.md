@@ -32,30 +32,31 @@ u-geometry provides fundamental geometric primitives, transformations, polygon o
 
 ```toml
 [dependencies]
-u-geometry = { git = "https://github.com/iyulab/u-geometry" }
+u-geometry = "0.2"
 
 # with serde support
-u-geometry = { git = "https://github.com/iyulab/u-geometry", features = ["serde"] }
+u-geometry = { version = "0.2", features = ["serde"] }
 ```
 
 ```rust
+use u_geometry::collision::polygons_intersect;
+use u_geometry::polygon::{area, contains_point, convex_hull};
 use u_geometry::primitives::{Point2, AABB2};
-use u_geometry::polygon::Polygon2D;
-use u_geometry::collision::sat_overlap;
 
 // Points and AABBs
 let p = Point2::new(1.0, 2.0);
-let aabb = AABB2::new(Point2::new(0.0, 0.0), Point2::new(10.0, 10.0));
-assert!(aabb.contains(&p));
+let aabb = AABB2::new(0.0, 0.0, 10.0, 10.0);
+assert!(aabb.contains_point(&p));
 
-// Polygon operations
-let polygon = Polygon2D::new(vec![
-    Point2::new(0.0, 0.0),
-    Point2::new(4.0, 0.0),
-    Point2::new(4.0, 3.0),
-    Point2::new(0.0, 3.0),
-]);
-assert!((polygon.area() - 12.0).abs() < 1e-10);
+// Polygons are slices of (x, y) vertices
+let rect = [(0.0, 0.0), (4.0, 0.0), (4.0, 3.0), (0.0, 3.0)];
+assert!((area(&rect) - 12.0).abs() < 1e-10);
+assert!(contains_point(&rect, (1.0, 1.0)));
+assert_eq!(convex_hull(&rect).len(), 4);
+
+// Exact overlap test for convex or concave polygons
+let shifted = [(2.0, 1.0), (6.0, 1.0), (6.0, 4.0), (2.0, 4.0)];
+assert!(polygons_intersect(&rect, &shifted));
 ```
 
 ## Build & Test
@@ -150,7 +151,7 @@ nesting/packing placement self-checks. Holes are not considered.
 
 **JSON schema**
 
-```
+```text
 Point ::= { "x": number, "y": number }
 AABB  ::= { "min": Point, "max": Point }
 ```

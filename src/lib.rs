@@ -51,3 +51,10 @@ pub mod nalgebra_types {
         Rotation3, UnitQuaternion, Vector2 as NaVector2, Vector3 as NaVector3,
     };
 }
+
+// The README's Rust examples are the first code most users copy, so they are
+// compiled and run with the doc-tests. Without this they were checked by
+// nothing.
+#[cfg(doctest)]
+#[doc = include_str!("../README.md")]
+pub struct ReadmeDoctests;
