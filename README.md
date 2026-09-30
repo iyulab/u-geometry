@@ -130,10 +130,9 @@ All functions take **native JS objects/arrays** (not JSON strings). A point is
 | `transform_points(points, tx, ty, angle)` | `(Point[], number, number, number) → Point[]` | Rigid transform (rotation in **radians** about origin, then translate) |
 
 ```js
-import init, {
+import {
   polygons_intersect, polygon_bounds, transform_points,
 } from '@iyulab/u-geometry';
-await init();
 
 const a = [{x:0,y:0},{x:2,y:0},{x:2,y:2},{x:0,y:2}];
 const b = [{x:1,y:1},{x:3,y:1},{x:3,y:3},{x:1,y:3}];
