@@ -10,6 +10,11 @@ Maintained from 0.1.1 onward; earlier entries list release dates only (see git h
 
 ### Changed
 
+- **Breaking:** the WebAssembly functions throw an `Error` carrying a stable
+  `code` (`malformed_input`, `empty_input`) and the `parameter` it is about,
+  instead of a bare string. `err.message` reads as before, but `String(err)`
+  now starts with `Error: `.
+
 - The README says a browser without a bundler is not supported (the package
   loads its `.wasm` through an ES module import, which browsers refuse), instead
   of listing only the environments that work.

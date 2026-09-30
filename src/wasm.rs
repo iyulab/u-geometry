@@ -5,10 +5,13 @@
 //!
 //! # Usage (JavaScript)
 //! ```js
-//! import init, { polygon_area, convex_hull, point_in_polygon } from '@iyulab/u-geometry';
-//! await init();
+//! import { polygon_area, convex_hull, point_in_polygon } from '@iyulab/u-geometry';
 //! const area = polygon_area([{x: 0, y: 0}, {x: 1, y: 0}, {x: 0, y: 1}]);
 //! ```
+//!
+//! Every refusal throws an `Error` whose `message` is readable text and which
+//! carries `code` -- a stable reason -- and `parameter`, the argument it is
+//! about. See the README's *Errors*.
 
 #![cfg(feature = "wasm")]
 
@@ -38,16 +41,37 @@ impl Point2D {
     }
 }
 
+/// A refusal: an `Error` whose `message` is `message`, with a stable `code`
+/// and the `parameter` it is about set on it as properties.
+fn refuse(code: &str, parameter: &str, message: String) -> JsValue {
+    let err = js_sys::Error::new(&message);
+    // `Reflect::set` on a freshly created ordinary object cannot fail.
+    let _ = js_sys::Reflect::set(&err, &"code".into(), &code.into());
+    let _ = js_sys::Reflect::set(&err, &"parameter".into(), &parameter.into());
+    err.into()
+}
+
+/// Serializes a response; a failure is reported rather than unwrapped.
+fn to_js<T: Serialize>(value: &T) -> Result<JsValue, JsValue> {
+    serde_wasm_bindgen::to_value(value)
+        .map_err(|e| refuse("malformed_input", "result", e.to_string()))
+}
+
 /// Deserialize a native JS value, rejecting JSON strings with an actionable
 /// message and prefixing the offending parameter name to any serde error.
 fn from_js<T: serde::de::DeserializeOwned>(value: JsValue, param: &str) -> Result<T, JsValue> {
     if value.as_string().is_some() {
-        return Err(JsValue::from_str(&format!(
-            "{param}: expected a native JS object/array, got a string — \
-             pass the value directly, not JSON.stringify(...)"
-        )));
+        return Err(refuse(
+            "malformed_input",
+            param,
+            format!(
+                "{param}: expected a native JS object/array, got a string — \
+                 pass the value directly, not JSON.stringify(...)"
+            ),
+        ));
     }
-    serde_wasm_bindgen::from_value(value).map_err(|e| JsValue::from_str(&format!("{param}: {e}")))
+    serde_wasm_bindgen::from_value(value)
+        .map_err(|e| refuse("malformed_input", param, format!("{param}: {e}")))
 }
 
 fn parse_points(js: JsValue, param: &str) -> Result<Vec<Point2D>, JsValue> {
@@ -85,7 +109,7 @@ pub fn convex_hull(
     let tuples: Vec<(f64, f64)> = points.iter().map(|p| p.to_tuple()).collect();
     let hull = crate::polygon::convex_hull(&tuples);
     let result: Vec<Point2D> = hull.into_iter().map(Point2D::from_tuple).collect();
-    serde_wasm_bindgen::to_value(&result).map_err(|e| JsValue::from_str(&e.to_string()))
+    to_js(&result)
 }
 
 /// Tests whether a point lies inside (or on the boundary of) a simple polygon.
@@ -140,14 +164,18 @@ pub fn polygons_intersect(
 /// - `points`: native array of `{"x": f64, "y": f64}` objects (must be non-empty)
 ///
 /// # Returns
-/// `{"min": {x, y}, "max": {x, y}}`, or an error if `points` is empty.
+/// `{"min": {x, y}, "max": {x, y}}`; throws `empty_input` if `points` is empty.
 #[wasm_bindgen(unchecked_return_type = "Aabb")]
 pub fn polygon_bounds(
     #[wasm_bindgen(unchecked_param_type = "Point2D[]")] points: JsValue,
 ) -> Result<JsValue, JsValue> {
     let points = parse_points(points, "points")?;
     if points.is_empty() {
-        return Err(JsValue::from_str("points: expected a non-empty array"));
+        return Err(refuse(
+            "empty_input",
+            "points",
+            "points: expected a non-empty array".to_string(),
+        ));
     }
     let mut min_x = points[0].x;
     let mut min_y = points[0].y;
@@ -163,7 +191,7 @@ pub fn polygon_bounds(
         min: Point2D { x: min_x, y: min_y },
         max: Point2D { x: max_x, y: max_y },
     };
-    serde_wasm_bindgen::to_value(&aabb).map_err(|e| JsValue::from_str(&e.to_string()))
+    to_js(&aabb)
 }
 
 /// Applies a rigid 2D transform (rotation about the origin, then translation)
@@ -195,5 +223,5 @@ pub fn transform_points(
         .into_iter()
         .map(Point2D::from_tuple)
         .collect();
-    serde_wasm_bindgen::to_value(&out).map_err(|e| JsValue::from_str(&e.to_string()))
+    to_js(&out)
 }

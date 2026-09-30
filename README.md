@@ -161,6 +161,24 @@ Point ::= { "x": number, "y": number }
 AABB  ::= { "min": Point, "max": Point }
 ```
 
+**Errors.** A refusal throws an `Error` whose `message` is readable text and
+which carries a `code` naming the reason and the `parameter` it is about:
+
+```js
+import { polygon_bounds } from '@iyulab/u-geometry';
+
+try {
+  polygon_bounds([]);
+} catch (err) {
+  console.log(err.code, err.parameter); // empty_input points
+}
+```
+
+| `code` | Fields | Meaning |
+|---|---|---|
+| `malformed_input` | `parameter` | An argument of the wrong shape or type, or a JSON string |
+| `empty_input` | `parameter` | `polygon_bounds` given no points |
+
 ## Related
 
 - [u-numflow](https://github.com/iyulab/u-numflow) — Mathematical primitives
