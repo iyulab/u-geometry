@@ -8,6 +8,8 @@ Maintained from 0.1.1 onward; earlier entries list release dates only (see git h
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-09-30
+
 ### Changed
 
 - The publishing workflow runs the README's JavaScript examples against the
