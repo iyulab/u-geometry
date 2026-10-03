@@ -19,6 +19,7 @@ use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
 #[derive(Serialize, Deserialize, tsify::Tsify)]
+#[serde(deny_unknown_fields)]
 struct Point2D {
     x: f64,
     y: f64,
@@ -51,6 +52,107 @@ fn refuse(code: &str, parameter: &str, message: String) -> JsValue {
     err.into()
 }
 
+/// `value_not_finite` for a NaN or ±Infinity, with the path to it as
+/// `parameter` and its array position as `index` (`null` when not an element).
+fn refuse_non_finite(found: &NonFinite) -> JsValue {
+    let err = refuse("value_not_finite", &found.parameter, found.message());
+    let index = found
+        .index
+        .map_or(JsValue::NULL, |i| JsValue::from(i as u32));
+    let _ = js_sys::Reflect::set(&err, &"index".into(), &index);
+    err
+}
+
+/// A number argument passed directly (not inside an object or array).
+fn finite_arg(value: f64, parameter: &str) -> Result<f64, JsValue> {
+    if value.is_finite() {
+        Ok(value)
+    } else {
+        Err(refuse_non_finite(&NonFinite {
+            parameter: parameter.to_string(),
+            index: None,
+            value,
+        }))
+    }
+}
+
+/// A NaN or ±Infinity found in a JS argument, and where it sits.
+///
+/// JSON has no non-finite numbers, so on the way to the wire schema
+/// `serde_json` turns one into `null` and the caller would be told a value has
+/// the wrong type. [`find_non_finite`] looks before that happens, so the
+/// refusal names the real reason and the place.
+struct NonFinite {
+    /// The argument's name, then `.key` and `[i]` steps down to the array or
+    /// field that holds the number.
+    parameter: String,
+    /// The number's position, when it is an array element.
+    index: Option<usize>,
+    value: f64,
+}
+
+impl NonFinite {
+    fn message(&self) -> String {
+        let at = match self.index {
+            Some(i) => format!("{}[{i}]", self.parameter),
+            None => self.parameter.clone(),
+        };
+        let got = if self.value.is_nan() {
+            "NaN"
+        } else if self.value > 0.0 {
+            "Infinity"
+        } else {
+            "-Infinity"
+        };
+        format!("{at}: expected a finite number, got {got}")
+    }
+}
+
+/// The first NaN or ±Infinity in `value`, searching arrays, iterables and
+/// plain objects. `allow_nan` lets NaN through for an input that reads it as a
+/// missing value; it then arrives as `null`.
+fn find_non_finite(value: &JsValue, parameter: &str, allow_nan: bool) -> Option<NonFinite> {
+    let refused = |n: f64| !n.is_finite() && !(allow_nan && n.is_nan());
+    let found = |index: Option<usize>, value: f64| NonFinite {
+        parameter: parameter.to_string(),
+        index,
+        value,
+    };
+    if let Some(n) = value.as_f64() {
+        return refused(n).then(|| found(None, n));
+    }
+    if !value.is_object() {
+        return None;
+    }
+    if let Ok(Some(items)) = js_sys::try_iter(value) {
+        for (i, item) in items.enumerate() {
+            // An iterator that throws is left for serde to report.
+            let item = item.ok()?;
+            match item.as_f64() {
+                Some(n) if refused(n) => return Some(found(Some(i), n)),
+                Some(_) => {}
+                None => {
+                    let inner = find_non_finite(&item, &format!("{parameter}[{i}]"), allow_nan);
+                    if inner.is_some() {
+                        return inner;
+                    }
+                }
+            }
+        }
+        return None;
+    }
+    let object: &js_sys::Object = wasm_bindgen::JsCast::unchecked_ref(value);
+    for entry in js_sys::Object::entries(object).iter() {
+        let pair: js_sys::Array = wasm_bindgen::JsCast::unchecked_into(entry);
+        let key = pair.get(0).as_string().unwrap_or_default();
+        let inner = find_non_finite(&pair.get(1), &format!("{parameter}.{key}"), allow_nan);
+        if inner.is_some() {
+            return inner;
+        }
+    }
+    None
+}
+
 /// Serializes a response; a failure is reported rather than unwrapped.
 fn to_js<T: Serialize>(value: &T) -> Result<JsValue, JsValue> {
     serde_wasm_bindgen::to_value(value)
@@ -70,7 +172,15 @@ fn from_js<T: serde::de::DeserializeOwned>(value: JsValue, param: &str) -> Resul
             ),
         ));
     }
-    serde_wasm_bindgen::from_value(value)
+    if let Some(found) = find_non_finite(&value, param, false) {
+        return Err(refuse_non_finite(&found));
+    }
+    // serde-wasm-bindgen reads only a struct's declared fields from a JS
+    // object, so `deny_unknown_fields` never sees extra keys. Round-trip
+    // through serde_json::Value so the strict wire schema is enforced.
+    let json: serde_json::Value = serde_wasm_bindgen::from_value(value)
+        .map_err(|e| refuse("malformed_input", param, format!("{param}: {e}")))?;
+    serde_json::from_value(json)
         .map_err(|e| refuse("malformed_input", param, format!("{param}: {e}")))
 }
 
@@ -216,6 +326,11 @@ pub fn transform_points(
     angle: f64,
 ) -> Result<JsValue, JsValue> {
     let points = parse_points(points, "points")?;
+    let (tx, ty, angle) = (
+        finite_arg(tx, "tx")?,
+        finite_arg(ty, "ty")?,
+        finite_arg(angle, "angle")?,
+    );
     let tuples: Vec<(f64, f64)> = points.iter().map(|p| p.to_tuple()).collect();
     let t = crate::transform::Transform2D::new(tx, ty, angle);
     let out: Vec<Point2D> = t

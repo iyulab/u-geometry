@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Maintained from 0.1.1 onward; earlier entries list release dates only (see git history).
 
+## [Unreleased]
+
+### Fixed
+
+- **Breaking (WASM):** a NaN or ±Infinity anywhere in an argument is refused
+  with `value_not_finite` (`parameter` the path to it, `index`), as in the
+  other bindings; a NaN point used to read as "outside" and `polygon_bounds`
+  dropped NaN vertices. `transform_points` checks `tx`, `ty` and `angle` too.
+- **Breaking (WASM):** a point with a key other than `x` and `y` is refused
+  (`malformed_input`); an extra `z` used to be dropped.
+
 ## [0.3.0] - 2026-09-30
 
 ### Changed
