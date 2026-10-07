@@ -23,6 +23,8 @@ serde = { version = "1.0", features = ["derive"], optional = true }
 tsify = { version = "0.5", default-features = false, features = ["js"], optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
 serde-wasm-bindgen = { version = "0.6", optional = true }
+# Names the field and array position a request stopped deserializing at.
+serde_path_to_error = { version = "0.1", optional = true }
 js-sys = { version = "0.3", optional = true }
 serde_json = { version = "1.0", optional = true }
 
@@ -38,4 +40,4 @@ harness = false
 [features]
 default = []
 serde = ["dep:serde", "nalgebra/serde-serialize"]
-wasm = ["dep:wasm-bindgen", "dep:js-sys", "dep:serde-wasm-bindgen", "dep:serde_json", "serde", "dep:tsify"]
+wasm = ["dep:wasm-bindgen", "dep:js-sys", "dep:serde-wasm-bindgen", "dep:serde_json", "serde", "dep:tsify", "dep:serde_path_to_error"]

@@ -180,8 +180,57 @@ fn from_js<T: serde::de::DeserializeOwned>(value: JsValue, param: &str) -> Resul
     // through serde_json::Value so the strict wire schema is enforced.
     let json: serde_json::Value = serde_wasm_bindgen::from_value(value)
         .map_err(|e| refuse("malformed_input", param, format!("{param}: {e}")))?;
-    serde_json::from_value(json)
-        .map_err(|e| refuse("malformed_input", param, format!("{param}: {e}")))
+    serde_path_to_error::deserialize(json).map_err(|e| {
+        let (parameter, index) = failure_site(param, e.path());
+        let err = refuse(
+            "malformed_input",
+            &parameter,
+            format!("{param}: {}: {}", e.path(), e.inner()),
+        );
+        let index = index.map_or(JsValue::NULL, |i| JsValue::from(i as u32));
+        // `Reflect::set` on a freshly created ordinary object cannot fail.
+        let _ = js_sys::Reflect::set(&err, &"index".into(), &index);
+        err
+    })
+}
+
+/// Where in the argument `param` a request stopped deserializing, as the
+/// refusal reports it: the field (`design[1]`, `points[0].y`) and, when the
+/// failure sits in an array, its position there -- the same `parameter` /
+/// `index` a number array read element by element reports. Without it a
+/// `null` three levels down was "invalid type: null, expected f64" with no
+/// way to say which row (the gap `read_numbers` closed for bare arrays).
+fn failure_site(param: &str, path: &serde_path_to_error::Path) -> (String, Option<usize>) {
+    use serde_path_to_error::Segment;
+    let segments: Vec<&Segment> = path.iter().collect();
+    let index = segments.iter().rev().find_map(|s| match s {
+        Segment::Seq { index } => Some(*index),
+        _ => None,
+    });
+    // A trailing `[i]` is the index, not part of the name.
+    let named = match segments.last() {
+        Some(Segment::Seq { .. }) => &segments[..segments.len() - 1],
+        _ => &segments[..],
+    };
+    let mut name = String::new();
+    for segment in named {
+        match segment {
+            Segment::Seq { index } => name.push_str(&format!("[{index}]")),
+            Segment::Map { key } | Segment::Enum { variant: key } => {
+                if !name.is_empty() {
+                    name.push('.');
+                }
+                name.push_str(key);
+            }
+            Segment::Unknown => name.push_str(".?"),
+        }
+    }
+    // A top-level array argument (`data[1][2]`) or a failure at the root
+    // (a missing field) is named by the argument itself.
+    if name.is_empty() || name.starts_with('[') {
+        name.insert_str(0, param);
+    }
+    (name, index)
 }
 
 fn parse_points(js: JsValue, param: &str) -> Result<Vec<Point2D>, JsValue> {
@@ -339,4 +388,39 @@ pub fn transform_points(
         .map(Point2D::from_tuple)
         .collect();
     to_js(&out)
+}
+
+#[cfg(test)]
+mod path_tests {
+    //! A value of the wrong type deep inside an argument is refused where it
+    //! sits: `parameter` names the field, `index` its array position.
+
+    #[test]
+    fn a_bad_coordinate_is_named_at_its_point() {
+        let e = serde_path_to_error::deserialize::<_, Vec<super::Point2D>>(serde_json::json!([
+            { "x": 0.0, "y": 0.0 },
+            { "x": 1.0, "y": null }
+        ]))
+        .err()
+        .expect("null is not a number");
+        assert_eq!(
+            super::failure_site("points", e.path()),
+            ("points[1].y".to_string(), Some(1))
+        );
+        // A top-level array element and a missing field.
+        let e = serde_path_to_error::deserialize::<_, Vec<f64>>(serde_json::json!([1.0, "2"]))
+            .expect_err("a string is not a number");
+        assert_eq!(
+            super::failure_site("values", e.path()),
+            ("values".to_string(), Some(1))
+        );
+        let e =
+            serde_path_to_error::deserialize::<_, super::Point2D>(serde_json::json!({ "x": 1.0 }))
+                .err()
+                .expect("y is required");
+        assert_eq!(
+            super::failure_site("point", e.path()),
+            ("point".to_string(), None)
+        );
+    }
 }
