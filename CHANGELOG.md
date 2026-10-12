@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Maintained from 0.1.1 onward; earlier entries list release dates only (see git history).
 
+## [0.5.0] - Unreleased
+
+### Added
+
+- `collision::boundary_distance(a, b)`: the minimum distance between the
+  boundaries of two polygons -- the clearance between two shapes side by side,
+  or between a shape and the hole it sits in. `0` when the boundaries touch or
+  cross; a point or a segment is measured as such; `None` for an empty input.
+  WebAssembly: `boundary_distance(polyA, polyB)` (throws `empty_input`).
+
 ## [0.4.1] - 2026-10-07
 
 ### Fixed

@@ -317,6 +317,39 @@ pub fn polygons_intersect(
     Ok(crate::collision::polygons_intersect(&ta, &tb))
 }
 
+/// Minimum distance between the boundaries of two polygons -- the clearance
+/// between two shapes side by side, or between a shape and the hole it sits in.
+///
+/// `0` when the boundaries touch or cross. A shape strictly inside another is
+/// at the gap between them, not `0` (use `polygons_intersect` for overlap).
+/// One point is a point, two a segment.
+///
+/// # Arguments
+/// - `poly_a`, `poly_b`: native arrays of `{"x": f64, "y": f64}` objects
+///
+/// # Returns
+/// The distance; throws `empty_input` (`parameter` the argument) if either is empty.
+#[wasm_bindgen]
+pub fn boundary_distance(
+    #[wasm_bindgen(unchecked_param_type = "Point2D[]")] poly_a: JsValue,
+    #[wasm_bindgen(unchecked_param_type = "Point2D[]")] poly_b: JsValue,
+) -> Result<f64, JsValue> {
+    let a = parse_points(poly_a, "poly_a")?;
+    let b = parse_points(poly_b, "poly_b")?;
+    for (points, parameter) in [(&a, "poly_a"), (&b, "poly_b")] {
+        if points.is_empty() {
+            return Err(refuse(
+                "empty_input",
+                parameter,
+                format!("{parameter}: expected a non-empty array"),
+            ));
+        }
+    }
+    let ta: Vec<(f64, f64)> = a.iter().map(|p| p.to_tuple()).collect();
+    let tb: Vec<(f64, f64)> = b.iter().map(|p| p.to_tuple()).collect();
+    Ok(crate::collision::boundary_distance(&ta, &tb).expect("both non-empty"))
+}
+
 /// Computes the axis-aligned bounding box of a set of points.
 ///
 /// # Arguments

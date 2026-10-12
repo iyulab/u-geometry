@@ -265,6 +265,69 @@ pub fn overlap_depth(poly_a: &[(f64, f64)], poly_b: &[(f64, f64)]) -> Option<f64
     }
 }
 
+/// Minimum Euclidean distance between the **boundaries** of two polygons.
+///
+/// This is the clearance between two shapes that do not overlap -- two parts
+/// side by side, or a part and the hole it sits in. It is `0` when the
+/// boundaries touch or cross. It measures boundaries, not regions: for a
+/// polygon strictly inside another it is the gap between them, not `0`, so
+/// pair it with [`polygons_intersect`] when overlap matters.
+///
+/// A polygon with one vertex is a point, with two a segment. Returns `None`
+/// when either polygon has no vertices.
+///
+/// # Complexity
+/// O(n · m) where n, m are vertex counts.
+///
+/// # Reference
+/// Ericson (2005), "Real-Time Collision Detection", §5.1.9 — closest points
+/// of two segments (a crossing pair is at distance 0, otherwise the minimum is
+/// attained at an endpoint of one of them).
+pub fn boundary_distance(poly_a: &[(f64, f64)], poly_b: &[(f64, f64)]) -> Option<f64> {
+    if poly_a.is_empty() || poly_b.is_empty() {
+        return None;
+    }
+    let mut best = f64::INFINITY;
+    for (a0, a1) in boundary_edges(poly_a) {
+        for (b0, b1) in boundary_edges(poly_b) {
+            if segments_properly_intersect(a0, a1, b0, b1) {
+                return Some(0.0);
+            }
+            let d = point_segment_distance(a0, b0, b1)
+                .min(point_segment_distance(a1, b0, b1))
+                .min(point_segment_distance(b0, a0, a1))
+                .min(point_segment_distance(b1, a0, a1));
+            best = best.min(d);
+        }
+    }
+    Some(best)
+}
+
+/// The closed boundary of `polygon` as segments; a single vertex yields one
+/// degenerate segment, so a point is measured as a point.
+fn boundary_edges(polygon: &[(f64, f64)]) -> impl Iterator<Item = ((f64, f64), (f64, f64))> + '_ {
+    let n = polygon.len();
+    let edges = if n <= 2 {
+        n.saturating_sub(1).max(1)
+    } else {
+        n
+    };
+    (0..edges).map(move |i| (polygon[i], polygon[(i + 1) % n]))
+}
+
+/// Distance from `p` to the segment `a`–`b` (to `a` when the segment is a point).
+fn point_segment_distance(p: (f64, f64), a: (f64, f64), b: (f64, f64)) -> f64 {
+    let (dx, dy) = (b.0 - a.0, b.1 - a.1);
+    let len_sq = dx * dx + dy * dy;
+    let t = if len_sq > 0.0 {
+        (((p.0 - a.0) * dx + (p.1 - a.1) * dy) / len_sq).clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+    let (cx, cy) = (a.0 + t * dx, a.1 + t * dy);
+    ((p.0 - cx).powi(2) + (p.1 - cy).powi(2)).sqrt()
+}
+
 /// Checks if two AABBs overlap (broad-phase test).
 ///
 /// # Complexity
@@ -561,6 +624,75 @@ mod tests {
             let b = square(gap, 0.0, sz);
             proptest::prop_assert!(!polygons_intersect(&a, &b));
         }
+
+        /// Boundary distance is symmetric, translation invariant and never
+        /// more than the distance between any two vertices.
+        #[test]
+        fn prop_boundary_distance_metric(
+            ax in -5.0f64..5.0, ay in -5.0f64..5.0, asz in 0.5f64..5.0,
+            bx in -5.0f64..5.0, by in -5.0f64..5.0, bsz in 0.5f64..5.0,
+            tx in -50.0f64..50.0, ty in -50.0f64..50.0,
+        ) {
+            let a = square(ax, ay, asz);
+            let b = triangle(bx, by, bsz);
+            let d = boundary_distance(&a, &b).expect("non-empty");
+            let back = boundary_distance(&b, &a).expect("non-empty");
+            proptest::prop_assert!((d - back).abs() < 1e-12);
+            let shift = |p: &Vec<(f64, f64)>| p.iter().map(|&(x, y)| (x + tx, y + ty)).collect::<Vec<_>>();
+            let moved = boundary_distance(&shift(&a), &shift(&b)).expect("non-empty");
+            proptest::prop_assert!((d - moved).abs() < 1e-9);
+            for &p in &a {
+                for &q in &b {
+                    let pq = ((p.0 - q.0).powi(2) + (p.1 - q.1).powi(2)).sqrt();
+                    proptest::prop_assert!(d <= pq + 1e-12);
+                }
+            }
+            // Overlapping interiors with crossing boundaries are at distance 0.
+            if polygons_intersect(&a, &b) && d > 0.0 {
+                // One holds the other without touching: the gap is the clearance.
+                let inside = a.iter().all(|&p| contains_point(&b, p))
+                    || b.iter().all(|&p| contains_point(&a, p));
+                proptest::prop_assert!(inside);
+            }
+        }
+    }
+
+    // ---- boundary_distance ----
+
+    #[test]
+    fn boundary_distance_of_side_by_side_squares_is_the_gap() {
+        let a = square(0.0, 0.0, 2.0);
+        let b = square(3.0, 0.5, 2.0);
+        assert!((boundary_distance(&a, &b).expect("non-empty") - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn boundary_distance_of_diagonal_squares_is_corner_to_corner() {
+        let a = square(0.0, 0.0, 1.0);
+        let b = square(4.0, 5.0, 1.0); // corners (1,1) and (4,5): 3-4-5
+        assert!((boundary_distance(&a, &b).expect("non-empty") - 5.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn boundary_distance_is_zero_when_touching_or_crossing() {
+        let a = square(0.0, 0.0, 2.0);
+        assert_eq!(boundary_distance(&a, &square(2.0, 0.0, 2.0)), Some(0.0));
+        assert_eq!(boundary_distance(&a, &square(1.0, 1.0, 2.0)), Some(0.0));
+    }
+
+    #[test]
+    fn boundary_distance_of_a_part_in_a_hole_is_the_clearance() {
+        let hole = square(0.0, 0.0, 10.0);
+        let part = square(4.0, 3.0, 2.0); // nearest wall: y = 0, 3 away
+        assert!((boundary_distance(&part, &hole).expect("non-empty") - 3.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn boundary_distance_measures_points_and_segments() {
+        let point = [(0.0, 3.0)];
+        let segment = [(-1.0, 0.0), (1.0, 0.0)];
+        assert!((boundary_distance(&point, &segment).expect("non-empty") - 3.0).abs() < 1e-12);
+        assert_eq!(boundary_distance(&[], &segment), None);
     }
 
     // ======================== 3D Collision Tests ========================

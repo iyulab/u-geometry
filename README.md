@@ -32,10 +32,10 @@ u-geometry provides fundamental geometric primitives, transformations, polygon o
 
 ```toml
 [dependencies]
-u-geometry = "0.4"
+u-geometry = "0.5"
 
 # with serde support
-u-geometry = { version = "0.4", features = ["serde"] }
+u-geometry = { version = "0.5", features = ["serde"] }
 ```
 
 ```rust
@@ -132,18 +132,20 @@ All functions take **native JS objects/arrays** (not JSON strings). A point is
 | `convex_hull(points)` | `Point[] → Point[]` | Convex hull, CCW order |
 | `point_in_polygon(point, polygon)` | `(Point, Point[]) → boolean` | Point inside or on boundary |
 | `polygons_intersect(polyA, polyB)` | `(Point[], Point[]) → boolean` | Exact overlap for **convex or concave** polygons |
+| `boundary_distance(polyA, polyB)` | `(Point[], Point[]) → number` | Minimum distance between the two boundaries (clearance); `0` when they touch or cross |
 | `polygon_bounds(points)` | `Point[] → AABB` | Axis-aligned bounding box |
 | `transform_points(points, tx, ty, angle)` | `(Point[], number, number, number) → Point[]` | Rigid transform (rotation in **radians** about origin, then translate) |
 
 ```js
 import {
-  polygons_intersect, polygon_bounds, transform_points,
+  polygons_intersect, boundary_distance, polygon_bounds, transform_points,
 } from '@iyulab/u-geometry';
 
 const a = [{x:0,y:0},{x:2,y:0},{x:2,y:2},{x:0,y:2}];
 const b = [{x:1,y:1},{x:3,y:1},{x:3,y:3},{x:1,y:3}];
 
 polygons_intersect(a, b);              // true  — interiors overlap
+boundary_distance(a, transform_points(a, 3, 0, 0)); // 1 — the gap between side-by-side squares
 polygon_bounds(a);                     // { min:{x:0,y:0}, max:{x:2,y:2} }
 transform_points(a, 10, 5, Math.PI/2); // a rotated 90° CCW, then translated by (10,5)
 ```
