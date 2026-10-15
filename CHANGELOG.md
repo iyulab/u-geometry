@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Maintained from 0.1.1 onward; earlier entries list release dates only (see git history).
 
+## [Unreleased]
+
+### Added
+
+- `codes()`: every refusal `code` the package throws, with the fields that
+  can come with it -- `{ refusals: [{ code, fields }], violations: [] }`, the
+  shape every engine package shares -- built from the table the refusals are
+  built from, so a caller that translates codes can check its list against the
+  package's.
+
+### Fixed
+
+- The README lists `value_not_finite`, which the package throws, and the
+  `index` a `malformed_input` carries inside an array; a test keeps the table
+  and `codes()` equal.
+
 ## [0.5.0] - 2026-10-13
 
 ### Added

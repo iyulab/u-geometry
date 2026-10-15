@@ -135,6 +135,7 @@ All functions take **native JS objects/arrays** (not JSON strings). A point is
 | `boundary_distance(polyA, polyB)` | `(Point[], Point[]) → number` | Minimum distance between the two boundaries (clearance); `0` when they touch or cross |
 | `polygon_bounds(points)` | `Point[] → AABB` | Axis-aligned bounding box |
 | `transform_points(points, tx, ty, angle)` | `(Point[], number, number, number) → Point[]` | Rigid transform (rotation in **radians** about origin, then translate) |
+| `codes()` | `() → Codes` | Every refusal `code` and the fields that can come with it: `{ refusals: [{ code, fields }], violations: [] }`, built from the table the refusals come from (the table under **Errors** explains each) |
 
 ```js
 import {
@@ -178,8 +179,9 @@ try {
 
 | `code` | Fields | Meaning |
 |---|---|---|
-| `malformed_input` | `parameter` | An argument of the wrong shape or type, or a JSON string |
+| `malformed_input` | `parameter`, `index` (inside an array) | An argument of the wrong shape or type, or a JSON string |
 | `empty_input` | `parameter` | `polygon_bounds` given no points |
+| `value_not_finite` | `parameter`, `index` | A NaN or ±Infinity anywhere in an argument — `parameter` is the path to it, `index` its position in that array, or `null` |
 
 ## Related
 

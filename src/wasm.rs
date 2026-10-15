@@ -42,12 +42,94 @@ impl Point2D {
     }
 }
 
+/// Every reason a function of this binding refuses with: the `code` an
+/// `Error` carries, and the fields that can stand beside it. A refusal is
+/// built from one of these ([`refuse`]), so [`codes`] -- the list a caller
+/// reads -- is the list the binding refuses from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Code {
+    MalformedInput,
+    ValueNotFinite,
+    EmptyInput,
+}
+
+impl Code {
+    const ALL: [Code; 3] = [Code::MalformedInput, Code::ValueNotFinite, Code::EmptyInput];
+
+    fn name(self) -> &'static str {
+        match self {
+            Code::MalformedInput => "malformed_input",
+            Code::ValueNotFinite => "value_not_finite",
+            Code::EmptyInput => "empty_input",
+        }
+    }
+
+    /// The fields a refusal with this code can carry besides `code`.
+    fn fields(self) -> &'static [&'static str] {
+        match self {
+            Code::MalformedInput | Code::ValueNotFinite => &["parameter", "index"],
+            Code::EmptyInput => &["parameter"],
+        }
+    }
+}
+
+/// A refusal reason: the `code` an `Error` carries and the fields that can
+/// stand beside it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, tsify::Tsify)]
+#[serde(deny_unknown_fields)]
+struct RefusalCode {
+    code: String,
+    fields: Vec<String>,
+}
+
+/// A violation a checker reports. This package has no checker; the type is
+/// here so every engine's [`Codes`] has one shape.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, tsify::Tsify)]
+#[serde(deny_unknown_fields)]
+struct ViolationCode {
+    code: String,
+    fields: Vec<String>,
+    checkers: Vec<String>,
+}
+
+/// What this package can answer with besides a result: every refusal
+/// `code`, and no violations -- it has no checker.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, tsify::Tsify)]
+#[serde(deny_unknown_fields)]
+struct Codes {
+    refusals: Vec<RefusalCode>,
+    violations: Vec<ViolationCode>,
+}
+
+fn code_catalog() -> Codes {
+    Codes {
+        refusals: Code::ALL
+            .into_iter()
+            .map(|c| RefusalCode {
+                code: c.name().to_string(),
+                fields: c.fields().iter().map(|f| f.to_string()).collect(),
+            })
+            .collect(),
+        violations: vec![],
+    }
+}
+
+/// Every refusal `code` the functions of this package throw, with the fields
+/// that can come with it: `{ refusals: [{ code, fields }], violations: [] }`.
+///
+/// It is built from the table the refusals come from, so a caller that
+/// translates codes can check its list against the package's.
+#[wasm_bindgen(unchecked_return_type = "Codes")]
+pub fn codes() -> Result<JsValue, JsValue> {
+    to_js(&code_catalog())
+}
+
 /// A refusal: an `Error` whose `message` is `message`, with a stable `code`
 /// and the `parameter` it is about set on it as properties.
-fn refuse(code: &str, parameter: &str, message: String) -> JsValue {
+fn refuse(code: Code, parameter: &str, message: String) -> JsValue {
     let err = js_sys::Error::new(&message);
     // `Reflect::set` on a freshly created ordinary object cannot fail.
-    let _ = js_sys::Reflect::set(&err, &"code".into(), &code.into());
+    let _ = js_sys::Reflect::set(&err, &"code".into(), &code.name().into());
     let _ = js_sys::Reflect::set(&err, &"parameter".into(), &parameter.into());
     err.into()
 }
@@ -55,7 +137,7 @@ fn refuse(code: &str, parameter: &str, message: String) -> JsValue {
 /// `value_not_finite` for a NaN or ±Infinity, with the path to it as
 /// `parameter` and its array position as `index` (`null` when not an element).
 fn refuse_non_finite(found: &NonFinite) -> JsValue {
-    let err = refuse("value_not_finite", &found.parameter, found.message());
+    let err = refuse(Code::ValueNotFinite, &found.parameter, found.message());
     let index = found
         .index
         .map_or(JsValue::NULL, |i| JsValue::from(i as u32));
@@ -156,7 +238,7 @@ fn find_non_finite(value: &JsValue, parameter: &str, allow_nan: bool) -> Option<
 /// Serializes a response; a failure is reported rather than unwrapped.
 fn to_js<T: Serialize>(value: &T) -> Result<JsValue, JsValue> {
     serde_wasm_bindgen::to_value(value)
-        .map_err(|e| refuse("malformed_input", "result", e.to_string()))
+        .map_err(|e| refuse(Code::MalformedInput, "result", e.to_string()))
 }
 
 /// Deserialize a native JS value, rejecting JSON strings with an actionable
@@ -164,7 +246,7 @@ fn to_js<T: Serialize>(value: &T) -> Result<JsValue, JsValue> {
 fn from_js<T: serde::de::DeserializeOwned>(value: JsValue, param: &str) -> Result<T, JsValue> {
     if value.as_string().is_some() {
         return Err(refuse(
-            "malformed_input",
+            Code::MalformedInput,
             param,
             format!(
                 "{param}: expected a native JS object/array, got a string — \
@@ -179,11 +261,11 @@ fn from_js<T: serde::de::DeserializeOwned>(value: JsValue, param: &str) -> Resul
     // object, so `deny_unknown_fields` never sees extra keys. Round-trip
     // through serde_json::Value so the strict wire schema is enforced.
     let json: serde_json::Value = serde_wasm_bindgen::from_value(value)
-        .map_err(|e| refuse("malformed_input", param, format!("{param}: {e}")))?;
+        .map_err(|e| refuse(Code::MalformedInput, param, format!("{param}: {e}")))?;
     serde_path_to_error::deserialize(json).map_err(|e| {
         let (parameter, index) = failure_site(param, e.path());
         let err = refuse(
-            "malformed_input",
+            Code::MalformedInput,
             &parameter,
             format!("{param}: {}: {}", e.path(), e.inner()),
         );
@@ -339,7 +421,7 @@ pub fn boundary_distance(
     for (points, parameter) in [(&a, "poly_a"), (&b, "poly_b")] {
         if points.is_empty() {
             return Err(refuse(
-                "empty_input",
+                Code::EmptyInput,
                 parameter,
                 format!("{parameter}: expected a non-empty array"),
             ));
@@ -364,7 +446,7 @@ pub fn polygon_bounds(
     let points = parse_points(points, "points")?;
     if points.is_empty() {
         return Err(refuse(
-            "empty_input",
+            Code::EmptyInput,
             "points",
             "points: expected a non-empty array".to_string(),
         ));
@@ -455,5 +537,43 @@ mod path_tests {
             super::failure_site("point", e.path()),
             ("point".to_string(), None)
         );
+    }
+}
+
+#[cfg(test)]
+mod code_catalog_tests {
+    use super::*;
+
+    /// The README's code tables list exactly the published vocabulary, so the
+    /// tables and `codes()` cannot drift apart.
+    #[test]
+    fn the_readme_documents_every_code_and_no_other() {
+        let readme = include_str!("../README.md");
+        let mut documented = std::collections::BTreeSet::new();
+        let mut in_table = false;
+        for line in readme.lines() {
+            if line.starts_with("| `code` |") {
+                in_table = true;
+                continue;
+            }
+            if !line.starts_with('|') {
+                in_table = false;
+                continue;
+            }
+            if in_table && !line.starts_with("|---") {
+                let first = line.split('|').nth(1).expect("a cell");
+                for code in first.split('·') {
+                    documented.insert(code.trim().trim_matches('`').to_string());
+                }
+            }
+        }
+        let catalog = code_catalog();
+        let published: std::collections::BTreeSet<String> = catalog
+            .refusals
+            .iter()
+            .map(|r| r.code.clone())
+            .chain(catalog.violations.iter().map(|v| v.code.clone()))
+            .collect();
+        assert_eq!(documented, published);
     }
 }
