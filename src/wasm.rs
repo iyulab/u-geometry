@@ -51,16 +51,24 @@ enum Code {
     MalformedInput,
     ValueNotFinite,
     EmptyInput,
+    /// The package failed, not the input.
+    Internal,
 }
 
 impl Code {
-    const ALL: [Code; 3] = [Code::MalformedInput, Code::ValueNotFinite, Code::EmptyInput];
+    const ALL: [Code; 4] = [
+        Code::MalformedInput,
+        Code::ValueNotFinite,
+        Code::EmptyInput,
+        Code::Internal,
+    ];
 
     fn name(self) -> &'static str {
         match self {
             Code::MalformedInput => "malformed_input",
             Code::ValueNotFinite => "value_not_finite",
             Code::EmptyInput => "empty_input",
+            Code::Internal => "internal",
         }
     }
 
@@ -69,6 +77,7 @@ impl Code {
         match self {
             Code::MalformedInput | Code::ValueNotFinite => &["parameter", "index"],
             Code::EmptyInput => &["parameter"],
+            Code::Internal => &[],
         }
     }
 }
@@ -131,6 +140,15 @@ fn refuse(code: Code, parameter: &str, message: String) -> JsValue {
     // `Reflect::set` on a freshly created ordinary object cannot fail.
     let _ = js_sys::Reflect::set(&err, &"code".into(), &code.name().into());
     let _ = js_sys::Reflect::set(&err, &"parameter".into(), &parameter.into());
+    err.into()
+}
+
+/// `internal`: the package failed, not the input -- there is nothing in the
+/// arguments to point at.
+fn refuse_internal(message: String) -> JsValue {
+    let err = js_sys::Error::new(&message);
+    // `Reflect::set` on a freshly created ordinary object cannot fail.
+    let _ = js_sys::Reflect::set(&err, &"code".into(), &Code::Internal.name().into());
     err.into()
 }
 
@@ -237,8 +255,7 @@ fn find_non_finite(value: &JsValue, parameter: &str, allow_nan: bool) -> Option<
 
 /// Serializes a response; a failure is reported rather than unwrapped.
 fn to_js<T: Serialize>(value: &T) -> Result<JsValue, JsValue> {
-    serde_wasm_bindgen::to_value(value)
-        .map_err(|e| refuse(Code::MalformedInput, "result", e.to_string()))
+    serde_wasm_bindgen::to_value(value).map_err(|e| refuse_internal(e.to_string()))
 }
 
 /// Deserialize a native JS value, rejecting JSON strings with an actionable

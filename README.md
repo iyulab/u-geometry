@@ -182,6 +182,7 @@ try {
 | `malformed_input` | `parameter`, `index` (inside an array) | An argument of the wrong shape or type, or a JSON string |
 | `empty_input` | `parameter` | `polygon_bounds` given no points |
 | `value_not_finite` | `parameter`, `index` | A NaN or ±Infinity anywhere in an argument — `parameter` is the path to it, `index` its position in that array, or `null` |
+| `internal` | — | A result the package could not hand back — a fault in the package, not in the input; please report it |
 
 ## Related
 
