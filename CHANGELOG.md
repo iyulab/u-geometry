@@ -8,6 +8,8 @@ Maintained from 0.1.1 onward; earlier entries list release dates only (see git h
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-16
+
 ### Added
 
 - `codes()`: every refusal `code` the package throws, with the fields that

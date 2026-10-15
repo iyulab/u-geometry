@@ -32,10 +32,10 @@ u-geometry provides fundamental geometric primitives, transformations, polygon o
 
 ```toml
 [dependencies]
-u-geometry = "0.5"
+u-geometry = "0.6"
 
 # with serde support
-u-geometry = { version = "0.5", features = ["serde"] }
+u-geometry = { version = "0.6", features = ["serde"] }
 ```
 
 ```rust
