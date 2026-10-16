@@ -8,6 +8,8 @@ Maintained from 0.1.1 onward; earlier entries list release dates only (see git h
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-10-16
+
 ### Fixed
 
 - A result the package fails to hand back to JavaScript is refused as
