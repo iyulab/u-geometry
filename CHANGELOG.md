@@ -8,6 +8,16 @@ Maintained from 0.1.1 onward; earlier entries list release dates only (see git h
 
 ## [Unreleased]
 
+### Fixed
+
+- `polygons_intersect` answers exactly, as the README says: two polygons
+  whose boundaries never cross transversally were judged by sampling vertices
+  and edge midpoints, so two identical squares — or a polygon lying inside
+  another along shared edges — were reported as not overlapping (a placement
+  check would accept a part stacked on another). It now splits each boundary
+  at the other's vertices and decides each piece exactly: inside the other
+  polygon, or along its edge with both interiors on the same side.
+
 ## [0.6.1] - 2026-10-16
 
 ### Fixed

@@ -49,16 +49,15 @@ pub fn polygons_overlap(poly_a: &[(f64, f64)], poly_b: &[(f64, f64)]) -> bool {
 /// a boundary-only contact is excluded. This matches the semantics required by
 /// nesting/packing self-checks, where parts that merely abut must not be flagged.
 ///
-/// The interior test samples each polygon's vertices *and edge midpoints*; the
-/// midpoints catch area overlaps along collinear edges that no vertex reveals
-/// (e.g. two axis-aligned rectangles overlapping in a strip). Holes are not
-/// considered (outer boundaries only).
-///
-/// # Limitation
-/// Interior sampling is finite: a pathological overlap that contains no sampled
-/// point and crosses no edge transversally could be missed. For the polygons
-/// that arise in nesting/packing this does not occur; an exact clipping-based
-/// area intersection would remove the theoretical gap at higher cost.
+/// Without a proper crossing, the boundaries meet only at input vertices and
+/// along shared (collinear) edge pieces. Each polygon's boundary is split at
+/// the other's vertices lying on it; the polygons overlap exactly when some
+/// piece of either boundary has the other polygon's interior beside it on its
+/// own interior side -- a piece whose midpoint lies strictly inside the other
+/// polygon, or a piece lying along an edge of the other polygon with both
+/// interiors on the same side (two identical squares). Every split point is an
+/// input vertex, so the shared-edge decision uses only exact orientation
+/// predicates. Holes are not considered (outer boundaries only).
 ///
 /// # Complexity
 /// O(n · m) where n, m are vertex counts (broad-phase AABB reject first).
@@ -93,31 +92,80 @@ pub fn polygons_intersect(poly_a: &[(f64, f64)], poly_b: &[(f64, f64)]) -> bool 
         }
     }
 
-    // Narrow phase 2: no boundary crossing → the polygons are either disjoint or
-    // one region lies inside the other. A strict-interior sample point of one
-    // polygon inside the other proves overlap; a merely-touching point lies on
-    // the boundary and is excluded. Sampling vertices *and* edge midpoints lets
-    // this catch collinear-edge strip overlaps that no vertex would reveal.
-    if any_interior_sample_inside(poly_a, poly_b) || any_interior_sample_inside(poly_b, poly_a) {
-        return true;
-    }
-
-    false
+    // Narrow phase 2: no proper crossing. The overlap region, if any, is
+    // bordered by a piece of one boundary with the other polygon's interior
+    // beside it on that piece's interior side.
+    boundary_borders_interior(poly_a, poly_b) || boundary_borders_interior(poly_b, poly_a)
 }
 
-/// Returns `true` if any vertex or edge-midpoint of `probe` lies strictly
-/// inside `target` (open interior, boundary excluded).
-fn any_interior_sample_inside(probe: &[(f64, f64)], target: &[(f64, f64)]) -> bool {
+/// Twice the signed area: positive for a counter-clockwise ring.
+fn signed_area2(polygon: &[(f64, f64)]) -> f64 {
+    let n = polygon.len();
+    (0..n)
+        .map(|i| {
+            let (a, b) = (polygon[i], polygon[(i + 1) % n]);
+            a.0 * b.1 - b.0 * a.1
+        })
+        .sum()
+}
+
+/// Whether `point` lies on the closed segment `a`-`b` (exact collinearity).
+fn on_segment(point: (f64, f64), a: (f64, f64), b: (f64, f64)) -> bool {
+    orient2d(a, b, point).is_collinear()
+        && point.0 >= a.0.min(b.0)
+        && point.0 <= a.0.max(b.0)
+        && point.1 >= a.1.min(b.1)
+        && point.1 <= a.1.max(b.1)
+}
+
+/// With no proper crossing between the boundaries: whether some piece of
+/// `probe`'s boundary -- its edges split at `target`'s vertices lying on them
+/// -- has `target`'s interior beside it on `probe`'s interior side.
+fn boundary_borders_interior(probe: &[(f64, f64)], target: &[(f64, f64)]) -> bool {
+    // The interior lies left of each edge for a counter-clockwise ring.
+    let side = |polygon: &[(f64, f64)]| signed_area2(polygon).signum();
+    let (probe_side, target_side) = (side(probe), side(target));
     let n = probe.len();
+    let m = target.len();
     for i in 0..n {
-        let a = probe[i];
-        if strictly_inside(a, target) {
-            return true;
+        let a0 = probe[i];
+        let a1 = probe[(i + 1) % n];
+        let (dx, dy) = (a1.0 - a0.0, a1.1 - a0.1);
+        let length2 = dx * dx + dy * dy;
+        if length2 == 0.0 {
+            continue;
         }
-        let b = probe[(i + 1) % n];
-        let mid = ((a.0 + b.0) * 0.5, (a.1 + b.1) * 0.5);
-        if strictly_inside(mid, target) {
-            return true;
+        // The edge's pieces: split at the target's vertices strictly inside it.
+        let mut cuts: Vec<(f64, (f64, f64))> = target
+            .iter()
+            .filter(|&&v| v != a0 && v != a1 && on_segment(v, a0, a1))
+            .map(|&v| (((v.0 - a0.0) * dx + (v.1 - a0.1) * dy) / length2, v))
+            .collect();
+        cuts.sort_by(|x, y| x.0.total_cmp(&y.0));
+        let points: Vec<(f64, f64)> = std::iter::once(a0)
+            .chain(cuts.into_iter().map(|(_, v)| v))
+            .chain(std::iter::once(a1))
+            .collect();
+        for piece in points.windows(2) {
+            let (s0, s1) = (piece[0], piece[1]);
+            // A piece along an edge of the target: overlap iff both interiors
+            // lie on the same side of the shared line.
+            let shared = (0..m).find(|&j| {
+                let (b0, b1) = (target[j], target[(j + 1) % m]);
+                on_segment(s0, b0, b1) && on_segment(s1, b0, b1)
+            });
+            if let Some(j) = shared {
+                let (b0, b1) = (target[j], target[(j + 1) % m]);
+                let same_direction = dx * (b1.0 - b0.0) + dy * (b1.1 - b0.1) > 0.0;
+                if same_direction == (probe_side == target_side) {
+                    return true;
+                }
+                continue;
+            }
+            let mid = ((s0.0 + s1.0) * 0.5, (s0.1 + s1.1) * 0.5);
+            if strictly_inside(mid, target) {
+                return true;
+            }
         }
     }
     false
@@ -533,6 +581,35 @@ mod tests {
             (1.0, 3.0),
             (0.0, 3.0),
         ]
+    }
+
+    #[test]
+    fn test_intersect_identical_polygons_overlap() {
+        let sq = [(0.0, 0.0), (2.0, 0.0), (2.0, 2.0), (0.0, 2.0)];
+        assert!(polygons_intersect(&sq, &sq));
+        // The same square traversed clockwise: still the same region.
+        let cw = [(0.0, 0.0), (0.0, 2.0), (2.0, 2.0), (2.0, 0.0)];
+        assert!(polygons_intersect(&sq, &cw));
+        let tri = [(0.1, 0.3), (5.7, 0.3), (2.9, 4.1)];
+        assert!(polygons_intersect(&tri, &tri));
+    }
+
+    #[test]
+    fn test_intersect_contained_along_shared_edges() {
+        // The inner square lies on two of the outer square's edges, and no
+        // vertex or midpoint of either lies strictly inside the other.
+        let outer = [(0.0, 0.0), (4.0, 0.0), (4.0, 4.0), (0.0, 4.0)];
+        let inner = [(0.0, 0.0), (4.0, 0.0), (4.0, 2.0), (0.0, 2.0)];
+        assert!(polygons_intersect(&outer, &inner));
+        assert!(polygons_intersect(&inner, &outer));
+    }
+
+    #[test]
+    fn test_intersect_abutting_along_part_of_an_edge_is_not_overlap() {
+        let a = [(0.0, 0.0), (4.0, 0.0), (4.0, 2.0), (0.0, 2.0)];
+        let b = [(1.0, 2.0), (3.0, 2.0), (3.0, 5.0), (1.0, 5.0)];
+        assert!(!polygons_intersect(&a, &b));
+        assert!(!polygons_intersect(&b, &a));
     }
 
     #[test]
