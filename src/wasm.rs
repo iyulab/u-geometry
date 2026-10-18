@@ -19,6 +19,7 @@ use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
 #[derive(Serialize, Deserialize, tsify::Tsify)]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
 #[serde(deny_unknown_fields)]
 struct Point2D {
     x: f64,
@@ -27,6 +28,7 @@ struct Point2D {
 
 /// Axis-aligned bounding box, serialized as `{"min": {x, y}, "max": {x, y}}`.
 #[derive(Serialize, Deserialize, tsify::Tsify)]
+#[cfg_attr(test, derive(schemars::JsonSchema))]
 struct Aabb {
     min: Point2D,
     max: Point2D,
@@ -592,5 +594,92 @@ mod code_catalog_tests {
             .chain(catalog.violations.iter().map(|v| v.code.clone()))
             .collect();
         assert_eq!(documented, published);
+    }
+}
+
+#[cfg(test)]
+mod engine_card_tests {
+    //! The engine card's operations are this binding's exports, and the
+    //! schemas it points at are generated from the types they read and return.
+
+    use super::{Aabb, Point2D};
+    use crate::engine_card::{arg, Schemas};
+
+    fn schemas() -> Schemas {
+        let s = Schemas::new();
+        s.op(
+            "polygon_area",
+            vec![arg("points", s.of::<Vec<Point2D>>())],
+            s.of::<f64>(),
+        );
+        s.op(
+            "convex_hull",
+            vec![arg("points", s.of::<Vec<Point2D>>())],
+            s.of::<Vec<Point2D>>(),
+        );
+        s.op(
+            "point_in_polygon",
+            vec![
+                arg("point", s.of::<Point2D>()),
+                arg("polygon", s.of::<Vec<Point2D>>()),
+            ],
+            s.of::<bool>(),
+        );
+        s.op(
+            "polygons_intersect",
+            vec![
+                arg("poly_a", s.of::<Vec<Point2D>>()),
+                arg("poly_b", s.of::<Vec<Point2D>>()),
+            ],
+            s.of::<bool>(),
+        );
+        s.op(
+            "boundary_distance",
+            vec![
+                arg("poly_a", s.of::<Vec<Point2D>>()),
+                arg("poly_b", s.of::<Vec<Point2D>>()),
+            ],
+            s.of::<f64>(),
+        );
+        s.op(
+            "polygon_bounds",
+            vec![arg("points", s.of::<Vec<Point2D>>())],
+            s.of::<Aabb>(),
+        );
+        s.op(
+            "transform_points",
+            vec![
+                arg("points", s.of::<Vec<Point2D>>()),
+                arg("tx", s.of::<f64>()),
+                arg("ty", s.of::<f64>()),
+                arg("angle", s.of::<f64>()),
+            ],
+            s.of::<Vec<Point2D>>(),
+        );
+        s
+    }
+
+    #[test]
+    fn the_schemas_are_generated_from_the_binding_types() {
+        schemas().check("u-geometry WebAssembly operations");
+    }
+
+    #[test]
+    fn every_export_is_a_card_operation_with_its_arguments() {
+        let s = schemas();
+        s.check_exports(include_str!("wasm.rs"));
+        s.check_card();
+    }
+
+    /// No operation reads a clock or draws a random number (the crate has no
+    /// randomness at all), so each returns the same result for the same
+    /// arguments.
+    #[test]
+    fn the_crate_reads_no_clock_and_no_randomness() {
+        assert!(!include_str!("../Cargo.toml").contains("rand ="));
+        assert_eq!(
+            crate::engine_card::clock_and_entropy_uses(),
+            Vec::<(String, &str)>::new()
+        );
     }
 }

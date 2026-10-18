@@ -41,6 +41,9 @@ pub mod transform;
 #[cfg(feature = "wasm")]
 pub mod wasm;
 
+#[cfg(all(test, feature = "wasm"))]
+mod engine_card;
+
 /// Re-exports of nalgebra types commonly used with this crate.
 ///
 /// Consumers can import these directly instead of adding a separate

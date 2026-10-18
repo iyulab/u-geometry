@@ -1,0 +1,214 @@
+{
+  "$defs": {
+    "Aabb": {
+      "description": "Axis-aligned bounding box, serialized as `{\"min\": {x, y}, \"max\": {x, y}}`.",
+      "properties": {
+        "max": {
+          "$ref": "#/$defs/Point2D"
+        },
+        "min": {
+          "$ref": "#/$defs/Point2D"
+        }
+      },
+      "required": [
+        "min",
+        "max"
+      ],
+      "type": "object"
+    },
+    "Point2D": {
+      "additionalProperties": false,
+      "properties": {
+        "x": {
+          "format": "double",
+          "type": "number"
+        },
+        "y": {
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "type": "object"
+    },
+    "boundary_distance.input": {
+      "additionalProperties": false,
+      "description": "The arguments of boundary_distance(poly_a, poly_b), by name; the WebAssembly function takes them in that order.",
+      "properties": {
+        "poly_a": {
+          "items": {
+            "$ref": "#/$defs/Point2D"
+          },
+          "type": "array"
+        },
+        "poly_b": {
+          "items": {
+            "$ref": "#/$defs/Point2D"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "poly_a",
+        "poly_b"
+      ],
+      "type": "object"
+    },
+    "boundary_distance.output": {
+      "format": "double",
+      "type": "number"
+    },
+    "convex_hull.input": {
+      "additionalProperties": false,
+      "description": "The arguments of convex_hull(points), by name; the WebAssembly function takes them in that order.",
+      "properties": {
+        "points": {
+          "items": {
+            "$ref": "#/$defs/Point2D"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "points"
+      ],
+      "type": "object"
+    },
+    "convex_hull.output": {
+      "items": {
+        "$ref": "#/$defs/Point2D"
+      },
+      "type": "array"
+    },
+    "point_in_polygon.input": {
+      "additionalProperties": false,
+      "description": "The arguments of point_in_polygon(point, polygon), by name; the WebAssembly function takes them in that order.",
+      "properties": {
+        "point": {
+          "$ref": "#/$defs/Point2D"
+        },
+        "polygon": {
+          "items": {
+            "$ref": "#/$defs/Point2D"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "point",
+        "polygon"
+      ],
+      "type": "object"
+    },
+    "point_in_polygon.output": {
+      "type": "boolean"
+    },
+    "polygon_area.input": {
+      "additionalProperties": false,
+      "description": "The arguments of polygon_area(points), by name; the WebAssembly function takes them in that order.",
+      "properties": {
+        "points": {
+          "items": {
+            "$ref": "#/$defs/Point2D"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "points"
+      ],
+      "type": "object"
+    },
+    "polygon_area.output": {
+      "format": "double",
+      "type": "number"
+    },
+    "polygon_bounds.input": {
+      "additionalProperties": false,
+      "description": "The arguments of polygon_bounds(points), by name; the WebAssembly function takes them in that order.",
+      "properties": {
+        "points": {
+          "items": {
+            "$ref": "#/$defs/Point2D"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "points"
+      ],
+      "type": "object"
+    },
+    "polygon_bounds.output": {
+      "$ref": "#/$defs/Aabb"
+    },
+    "polygons_intersect.input": {
+      "additionalProperties": false,
+      "description": "The arguments of polygons_intersect(poly_a, poly_b), by name; the WebAssembly function takes them in that order.",
+      "properties": {
+        "poly_a": {
+          "items": {
+            "$ref": "#/$defs/Point2D"
+          },
+          "type": "array"
+        },
+        "poly_b": {
+          "items": {
+            "$ref": "#/$defs/Point2D"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "poly_a",
+        "poly_b"
+      ],
+      "type": "object"
+    },
+    "polygons_intersect.output": {
+      "type": "boolean"
+    },
+    "transform_points.input": {
+      "additionalProperties": false,
+      "description": "The arguments of transform_points(points, tx, ty, angle), by name; the WebAssembly function takes them in that order.",
+      "properties": {
+        "angle": {
+          "format": "double",
+          "type": "number"
+        },
+        "points": {
+          "items": {
+            "$ref": "#/$defs/Point2D"
+          },
+          "type": "array"
+        },
+        "tx": {
+          "format": "double",
+          "type": "number"
+        },
+        "ty": {
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "points",
+        "tx",
+        "ty",
+        "angle"
+      ],
+      "type": "object"
+    },
+    "transform_points.output": {
+      "items": {
+        "$ref": "#/$defs/Point2D"
+      },
+      "type": "array"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "u-geometry WebAssembly operations"
+}

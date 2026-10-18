@@ -42,6 +42,8 @@ serde_json = { version = "1.0", optional = true }
 proptest = "1.5"
 serde_json = "1.0"
 criterion = "0.8"
+# Generates the JSON Schemas the engine card points at (tests only).
+schemars = "1"
 
 [[bench]]
 name = "geometry_bench"
