@@ -63,7 +63,20 @@
         "test": "src/wasm.rs::engine_card_tests::the_crate_reads_no_clock_and_no_randomness"
       },
       "validation": {
-        "status": "none"
+        "status": "partial",
+        "checks": [
+          {
+            "claim": "The unsigned area of 24 simple polygons equals shapely's, whichever way the ring winds.",
+            "reference_kind": "reference_implementation",
+            "reference": "shapely 2.2.0 (GEOS) Polygon.area",
+            "method": "compares seeded star-shaped polygons (24 pairs overlapping, disjoint and nested; 8 point sets of 20 to 59 points)",
+            "tolerance": "1e-12 (relative)",
+            "test": "tests/reference_shapely.rs::polygon_area_matches_shapely"
+          }
+        ],
+        "limits": [
+          "Simple polygons without holes."
+        ]
       },
       "performance": {
         "status": "none",
@@ -99,7 +112,20 @@
         "test": "src/wasm.rs::engine_card_tests::the_crate_reads_no_clock_and_no_randomness"
       },
       "validation": {
-        "status": "none"
+        "status": "partial",
+        "checks": [
+          {
+            "claim": "The hull has shapely's vertex set (collinear points dropped), runs counter-clockwise and starts at the lowest point.",
+            "reference_kind": "reference_implementation",
+            "reference": "shapely 2.2.0 MultiPoint.convex_hull",
+            "method": "compares six random normal point sets",
+            "tolerance": "1e-12 (absolute) per vertex",
+            "test": "tests/reference_shapely.rs::convex_hull_matches_shapely_as_a_set_and_runs_counter_clockwise_from_the_lowest_point"
+          }
+        ],
+        "limits": [
+          "Generic position; degenerate inputs (all collinear, duplicates) are covered by unit tests."
+        ]
       },
       "performance": {
         "status": "none",
@@ -135,7 +161,20 @@
         "test": "src/wasm.rs::engine_card_tests::the_crate_reads_no_clock_and_no_randomness"
       },
       "validation": {
-        "status": "none"
+        "status": "partial",
+        "checks": [
+          {
+            "claim": "A point is reported inside exactly when shapely's covers() is true (interior or boundary).",
+            "reference_kind": "reference_implementation",
+            "reference": "shapely 2.2.0 Polygon.covers",
+            "method": "96 random query points against eight seeded star-shaped polygons (star polygons overlapping, disjoint and nested",
+            "tolerance": "exact",
+            "test": "tests/reference_shapely.rs::point_in_polygon_matches_shapely_covers"
+          }
+        ],
+        "limits": [
+          "Random points rarely land on the boundary; boundary points are covered by unit tests."
+        ]
       },
       "performance": {
         "status": "none",
@@ -171,7 +210,20 @@
         "test": "src/wasm.rs::engine_card_tests::the_crate_reads_no_clock_and_no_randomness"
       },
       "validation": {
-        "status": "none"
+        "status": "partial",
+        "checks": [
+          {
+            "claim": "Two polygons are reported overlapping exactly when their interiors intersect (shapely's relate pattern T********); polygons that share only an edge or a vertex are not; the answer is the same for the coordinates multiplied by 1e-9 and 1e6.",
+            "reference_kind": "reference_implementation",
+            "reference": "shapely 2.2.0 relate_pattern(b, 'T********')",
+            "method": "compares 24 pairs at three coordinate units, and square pairs sharing an edge, a corner and a nested square at four",
+            "tolerance": "exact",
+            "test": "tests/reference_shapely.rs::polygon_overlap_and_boundary_distance_match_shapely_in_every_unit"
+          }
+        ],
+        "limits": [
+          "Simple polygons without holes; the unit change is by factors that are not powers of two, so the pairs are in generic position."
+        ]
       },
       "performance": {
         "status": "none",
@@ -207,7 +259,20 @@
         "test": "src/wasm.rs::engine_card_tests::the_crate_reads_no_clock_and_no_randomness"
       },
       "validation": {
-        "status": "none"
+        "status": "partial",
+        "checks": [
+          {
+            "claim": "The smallest distance between the two boundaries equals shapely's distance between the exteriors (0 when they touch or cross), also in other units.",
+            "reference_kind": "reference_implementation",
+            "reference": "shapely 2.2.0 exterior.distance",
+            "method": "compares 24 pairs at three coordinate units; edge-sharing squares give 0",
+            "tolerance": "1e-9 (relative to the larger of the distance and 1)",
+            "test": "tests/reference_shapely.rs::polygon_overlap_and_boundary_distance_match_shapely_in_every_unit"
+          }
+        ],
+        "limits": [
+          "A single point or segment as a polygon is covered by unit tests."
+        ]
       },
       "performance": {
         "status": "none",
@@ -243,7 +308,20 @@
         "test": "src/wasm.rs::engine_card_tests::the_crate_reads_no_clock_and_no_randomness"
       },
       "validation": {
-        "status": "none"
+        "status": "partial",
+        "checks": [
+          {
+            "claim": "The bounding box is the coordinate-wise minima and maxima.",
+            "reference_kind": "reference_implementation",
+            "reference": "shapely 2.2.0 bounds (the definition)",
+            "method": "compares six point sets",
+            "tolerance": "exact",
+            "test": "tests/reference_shapely.rs::bounds_are_the_coordinate_extremes"
+          }
+        ],
+        "limits": [
+          "Trivial by definition; the check guards the extremes against NaN ordering and empty input in unit tests."
+        ]
       },
       "performance": {
         "status": "none",
@@ -279,7 +357,20 @@
         "test": "src/wasm.rs::engine_card_tests::the_crate_reads_no_clock_and_no_randomness"
       },
       "validation": {
-        "status": "none"
+        "status": "partial",
+        "checks": [
+          {
+            "claim": "Rotation about the origin by the angle, then translation, equals the matrix product, preserving distances and area.",
+            "reference_kind": "literature",
+            "reference": "the rotation matrix [cos -sin; sin cos] (counter-clockwise), then the translation",
+            "method": "transforms three points and compares them, their distance and the triangle area",
+            "tolerance": "1e-14 (absolute)",
+            "test": "tests/reference_shapely.rs::rotation_then_translation_is_a_rigid_motion"
+          }
+        ],
+        "limits": [
+          "One angle and offset; reflections are not offered."
+        ]
       },
       "performance": {
         "status": "none",
