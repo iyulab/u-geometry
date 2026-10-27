@@ -29,6 +29,14 @@
 //! - O'Rourke (1998), "Computational Geometry in C"
 //! - Ericson (2005), "Real-Time Collision Detection"
 
+/// This crate's version, as published (`CARGO_PKG_VERSION`) — for a consumer
+/// that reports what it was built against without reading a lock file.
+///
+/// ```
+/// assert!(!u_geometry::VERSION.is_empty());
+/// ```
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 pub mod collision;
 pub mod minkowski;
 pub mod offset;
