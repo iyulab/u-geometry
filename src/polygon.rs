@@ -52,6 +52,21 @@ pub fn area(polygon: &[(f64, f64)]) -> f64 {
     signed_area(polygon).abs()
 }
 
+/// Whether `area` is nothing but the rounding of the cross products it was
+/// summed from: no larger than 1e-12 of their total size, which depends on the
+/// unit of the coordinates as much as the area does.
+fn is_degenerate_area(area: f64, polygon: &[(f64, f64)]) -> bool {
+    let n = polygon.len();
+    let scale: f64 = (0..n)
+        .map(|i| {
+            let j = (i + 1) % n;
+            (polygon[i].0 * polygon[j].1 - polygon[j].0 * polygon[i].1).abs()
+        })
+        .sum::<f64>()
+        * 0.5;
+    area.abs() <= 1e-12 * scale
+}
+
 /// Computes the centroid (center of mass) of a simple polygon.
 ///
 /// Assumes the polygon is non-degenerate (area > 0).
@@ -69,7 +84,7 @@ pub fn centroid(polygon: &[(f64, f64)]) -> Option<(f64, f64)> {
     }
 
     let a = signed_area(polygon);
-    if a.abs() < 1e-15 {
+    if is_degenerate_area(a, polygon) {
         return None;
     }
 
@@ -132,7 +147,9 @@ pub fn centroid_with_holes(exterior: &[(f64, f64)], holes: &[&[(f64, f64)]]) -> 
         }
     }
 
-    if total_area.abs() < 1e-15 {
+    // No net area left, judged against the exterior's own (a fixed floor
+    // would call any polygon in small units empty).
+    if total_area.abs() <= 1e-12 * ext_area.abs() {
         return None;
     }
 
@@ -617,5 +634,56 @@ mod tests {
         let tri = [(0.0, 0.0), (10.0, 0.0), (5.0, 10.0)];
         assert!(contains_point(&tri, (5.0, 3.0)));
         assert!(!contains_point(&tri, (20.0, 5.0)));
+    }
+}
+
+#[cfg(test)]
+mod unit_tests {
+    use super::*;
+
+    /// A polygon keeps its centroid (scaled with it) whatever the unit, and a
+    /// degenerate one is degenerate in every unit.
+    #[test]
+    fn centroid_does_not_depend_on_the_unit() {
+        let l_shape = [
+            (0.0, 0.0),
+            (4.0, 0.0),
+            (4.0, 1.0),
+            (1.0, 1.0),
+            (1.0, 3.0),
+            (0.0, 3.0),
+        ];
+        let base = centroid(&l_shape).expect("non-degenerate");
+        let line = [(0.0, 0.0), (1.0, 1.0), (2.0, 2.0)];
+        for k in [1e-12, 1e-9, 1e-3, 1e3, 1e9] {
+            let scaled: Vec<(f64, f64)> = l_shape.iter().map(|&(x, y)| (x * k, y * k)).collect();
+            let (cx, cy) = centroid(&scaled).expect("non-degenerate at every scale");
+            assert!((cx / k - base.0).abs() < 1e-9, "x at {k:e}");
+            assert!((cy / k - base.1).abs() < 1e-9, "y at {k:e}");
+            let flat: Vec<(f64, f64)> = line.iter().map(|&(x, y)| (x * k, y * k)).collect();
+            assert!(centroid(&flat).is_none(), "collinear at {k:e}");
+        }
+    }
+
+    #[test]
+    fn centroid_with_holes_does_not_depend_on_the_unit() {
+        let outer = [(0.0, 0.0), (4.0, 0.0), (4.0, 4.0), (0.0, 4.0)];
+        let hole = [(1.0, 1.0), (3.0, 1.0), (3.0, 3.0), (1.0, 3.0)];
+        let full_hole = [(0.0, 0.0), (4.0, 0.0), (4.0, 4.0), (0.0, 4.0)];
+        for k in [1e-12, 1e-6, 1.0, 1e6] {
+            let s = |p: &[(f64, f64)]| -> Vec<(f64, f64)> {
+                p.iter().map(|&(x, y)| (x * k, y * k)).collect()
+            };
+            let (o, h, f) = (s(&outer), s(&hole), s(&full_hole));
+            let (cx, cy) = centroid_with_holes(&o, &[h.as_slice()]).expect("a ring has a centroid");
+            assert!(
+                (cx / k - 2.0).abs() < 1e-9 && (cy / k - 2.0).abs() < 1e-9,
+                "ring at {k:e}"
+            );
+            assert!(
+                centroid_with_holes(&o, &[f.as_slice()]).is_none(),
+                "nothing left at {k:e}"
+            );
+        }
     }
 }

@@ -8,6 +8,14 @@ Maintained from 0.1.1 onward; earlier entries list release dates only (see git h
 
 ## [Unreleased]
 
+### Fixed
+
+- `polygon::centroid` and `polygon::centroid_with_holes` returned `None` for any polygon whose
+  area was below an absolute 1e-15, which is every polygon with sides under about 3e-8 (a part
+  in meters, a cell in a unit chosen for something else). Degeneracy is now judged against the
+  polygon's own size: the area has to exceed 1e-12 of the cross products it is summed from
+  (for holes, of the exterior's area), so the centroid does not depend on the unit.
+
 ### Added
 
 - `VERSION`: the crate's own version (`CARGO_PKG_VERSION`) as a constant at the
