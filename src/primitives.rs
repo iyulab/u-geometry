@@ -120,11 +120,12 @@ impl Vector2 {
         self.x * self.x + self.y * self.y
     }
 
-    /// Returns a normalized (unit-length) vector, or zero vector if length is ~0.
+    /// Returns a normalized (unit-length) vector, or zero vector if it has no
+    /// length. A vector is normalized however short it is in its unit.
     #[inline]
     pub fn normalized(&self) -> Self {
-        let len = self.length();
-        if len < 1e-15 {
+        let len = self.x.hypot(self.y);
+        if len <= 0.0 {
             Self::ZERO
         } else {
             Self::new(self.x / len, self.y / len)
@@ -514,11 +515,12 @@ impl Vector3 {
         self.x * self.x + self.y * self.y + self.z * self.z
     }
 
-    /// Returns a normalized (unit-length) vector, or zero vector if length is ~0.
+    /// Returns a normalized (unit-length) vector, or zero vector if it has no
+    /// length. A vector is normalized however short it is in its unit.
     #[inline]
     pub fn normalized(&self) -> Self {
         let len = self.length();
-        if len < 1e-15 {
+        if len <= 0.0 {
             Self::ZERO
         } else {
             Self::new(self.x / len, self.y / len, self.z / len)

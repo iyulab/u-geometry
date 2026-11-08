@@ -17,6 +17,14 @@ Maintained from 0.1.1 onward; earlier entries list release dates only (see git h
   follow the polygon's size, and directions are parallel when the sine of the angle between them
   is under 1e-12; the rings are the same in any unit (scaled by a power of two, they are equal
   ring for ring). A segment is projected on however short it is; only one with no length is a point.
+- `collision::polygons_overlap` allowed touching up to an absolute 1e-6, so two polygons under a
+  micrometre across (in meters) never overlapped however deep they sat in each other. The default
+  allowance is 1e-7 of the smaller polygon's extent; `polygons_overlap_with_tolerance` still takes
+  yours, in the unit of the coordinates. Separating-axis tests skipped every edge under 1e-15, so
+  polygons with sides under that (a feature in meters, in a unit chosen for something else) had no
+  axis left and always overlapped; only an edge with no length is skipped now. `Vector2::normalized`
+  and `Vector3::normalized` returned the zero vector for any vector shorter than 1e-15; only one
+  with no length does now.
 - `polygon::centroid` and `polygon::centroid_with_holes` returned `None` for any polygon whose
   area was below an absolute 1e-15, which is every polygon with sides under about 3e-8 (a part
   in meters, a cell in a unit chosen for something else). Degeneracy is now judged against the

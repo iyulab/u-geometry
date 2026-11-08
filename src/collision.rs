@@ -19,7 +19,10 @@ use crate::robust::orient2d;
 /// Checks if two convex polygons overlap using the Separating Axis Theorem.
 ///
 /// Returns `true` if the polygons overlap (not just touching).
-/// Uses a tolerance to allow touching without reporting overlap.
+/// Uses a tolerance to allow touching without reporting overlap: 1e-7 of the
+/// smaller polygon's extent, so the answer is the same in every unit. Use
+/// [`polygons_overlap_with_tolerance`] for an allowance of your own, in the
+/// unit of the coordinates.
 ///
 /// For concave polygons, this tests the convex hull — it may produce
 /// false positives but never false negatives. When exact overlap on
@@ -33,7 +36,11 @@ use crate::robust::orient2d;
 /// # Reference
 /// Ericson (2005), Real-Time Collision Detection, Ch. 4.4
 pub fn polygons_overlap(poly_a: &[(f64, f64)], poly_b: &[(f64, f64)]) -> bool {
-    polygons_overlap_with_tolerance(poly_a, poly_b, 1e-6)
+    let extent = |points: &[(f64, f64)]| {
+        aabb_from_tuples(points).map_or(0.0, |b| (b.max.x - b.min.x).max(b.max.y - b.min.y))
+    };
+    let tolerance = 1e-7 * extent(poly_a).min(extent(poly_b));
+    polygons_overlap_with_tolerance(poly_a, poly_b, tolerance)
 }
 
 /// Exact overlap test for two **simple polygons**, convex *or concave*.
@@ -244,9 +251,11 @@ pub fn polygons_overlap_with_tolerance(
             let edge_x = polygon[j].0 - polygon[i].0;
             let edge_y = polygon[j].1 - polygon[i].1;
 
-            // Axis = normal to edge (perpendicular)
-            let len = (edge_x * edge_x + edge_y * edge_y).sqrt();
-            if len < 1e-15 {
+            // Axis = normal to edge (perpendicular). Only an edge with no length
+            // has no normal; any other gives an axis that separates the polygons
+            // or does not, however short it is in its unit.
+            let len = edge_x.hypot(edge_y);
+            if len <= 0.0 {
                 continue;
             }
             let axis = (-edge_y / len, edge_x / len);
@@ -289,8 +298,8 @@ pub fn overlap_depth(poly_a: &[(f64, f64)], poly_b: &[(f64, f64)]) -> Option<f64
             let edge_x = polygon[j].0 - polygon[i].0;
             let edge_y = polygon[j].1 - polygon[i].1;
 
-            let len = (edge_x * edge_x + edge_y * edge_y).sqrt();
-            if len < 1e-15 {
+            let len = edge_x.hypot(edge_y);
+            if len <= 0.0 {
                 continue;
             }
             let axis = (-edge_y / len, edge_x / len);
