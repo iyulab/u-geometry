@@ -28,8 +28,58 @@ use crate::polygon;
 /// Default miter limit ratio (miter length / offset distance).
 const DEFAULT_MITER_LIMIT: f64 = 2.0;
 
-/// Tolerance for detecting parallel edges and degenerate geometry.
-const EPS: f64 = 1e-10;
+/// Directions whose cross product is no larger than this fraction of the
+/// product of their lengths are parallel (the sine of the angle between them).
+const PARALLEL_SINE: f64 = 1e-12;
+
+/// Lengths no larger than this fraction of the polygon's size (its extent, or
+/// the offset distance if that is larger) are nothing but rounding.
+const LENGTH_FLOOR: f64 = 1e-11;
+
+/// Areas no larger than this fraction of the size's square are degenerate.
+const AREA_FLOOR: f64 = 1e-12;
+
+/// Segment parameters (0 at the start, 1 at the end) closer than this to an end
+/// are at that end; they carry no unit.
+const PARAMETER_FLOOR: f64 = 1e-10;
+
+/// The degeneracy floors of one offset, in the unit of the polygon.
+///
+/// A fixed floor (it was an absolute `1e-10` on lengths, areas and cross
+/// products alike) calls a part drawn in metres at the scale of a micrometre
+/// "parallel", "empty" or "a point", and the offset came back unchanged or
+/// empty. The floors follow the size of the work instead, so the same polygon
+/// scaled by any factor gives the same rings, scaled.
+#[derive(Clone, Copy)]
+struct Floors {
+    /// Shorter than this is a point.
+    length: f64,
+    /// Smaller than this is no area.
+    area: f64,
+}
+
+impl Floors {
+    fn new(polygon: &[(f64, f64)], distance: f64) -> Self {
+        let (mut min_x, mut max_x) = (f64::INFINITY, f64::NEG_INFINITY);
+        let (mut min_y, mut max_y) = (f64::INFINITY, f64::NEG_INFINITY);
+        for &(x, y) in polygon {
+            min_x = min_x.min(x);
+            max_x = max_x.max(x);
+            min_y = min_y.min(y);
+            max_y = max_y.max(y);
+        }
+        let extent = (max_x - min_x).max(max_y - min_y);
+        let size = if extent.is_finite() {
+            extent.max(distance.abs())
+        } else {
+            distance.abs()
+        };
+        Floors {
+            length: LENGTH_FLOOR * size,
+            area: AREA_FLOOR * size * size,
+        }
+    }
+}
 
 /// Offsets a simple polygon by `distance` using the default miter limit (2.0).
 ///
@@ -86,7 +136,8 @@ pub fn offset_polygon_miter(
         return Vec::new();
     }
 
-    if distance.abs() < EPS {
+    let floors = Floors::new(polygon, distance);
+    if distance.abs() <= floors.length {
         return vec![polygon.to_vec()];
     }
 
@@ -97,7 +148,7 @@ pub fn offset_polygon_miter(
     let offset_edges: Vec<((f64, f64), (f64, f64))> = (0..n)
         .map(|i| {
             let j = (i + 1) % n;
-            offset_edge(poly[i], poly[j], distance)
+            offset_edge_with(poly[i], poly[j], distance, floors.length)
         })
         .collect();
 
@@ -114,7 +165,7 @@ pub fn offset_polygon_miter(
         let dir_curr = (ec1.0 - ec0.0, ec1.1 - ec0.1);
 
         if let Some(pt) = line_intersection(ep0, dir_prev, ec0, dir_curr) {
-            // Add EPS tolerance to miter limit to avoid false bevel triggers
+            // Add a tolerance to the miter limit to avoid false bevel triggers
             // from floating-point rounding near the boundary.
             let miter_dist_sq = (pt.0 - poly[i].0).powi(2) + (pt.1 - poly[i].1).powi(2);
             let limit_sq = (miter_limit * distance.abs() * (1.0 + 1e-4)).powi(2);
@@ -130,13 +181,13 @@ pub fn offset_polygon_miter(
         }
     }
 
-    let raw_vertices = remove_consecutive_duplicates(&raw_vertices);
+    let raw_vertices = remove_consecutive_duplicates(&raw_vertices, floors.length);
 
     if raw_vertices.len() < 3 {
         return Vec::new();
     }
 
-    let mut result = resolve_self_intersections(&raw_vertices);
+    let mut result = resolve_self_intersections(&raw_vertices, floors);
 
     // Filter out "ghost" polygons that appear when inward offset exceeds
     // half the polygon width. These have valid CCW winding but are actually
@@ -145,7 +196,7 @@ pub fn offset_polygon_miter(
     // |distance| away from every original edge (within tolerance).
     if distance < 0.0 {
         let abs_d = distance.abs();
-        let tol = abs_d * 0.1 + EPS; // 10% tolerance for numerical stability
+        let tol = abs_d * 0.1 + floors.length; // 10% tolerance for numerical stability
 
         result.retain(|ring| {
             // Check that at least one vertex has proper distance from all edges
@@ -181,7 +232,9 @@ fn point_to_segment_distance(p: (f64, f64), a: (f64, f64), b: (f64, f64)) -> f64
     let dy = b.1 - a.1;
     let len_sq = dx * dx + dy * dy;
 
-    if len_sq < EPS {
+    // Only a segment with no length leaves the projection undefined; any other
+    // is projected on, however short it is in its unit.
+    if len_sq <= 0.0 {
         return ((p.0 - a.0).powi(2) + (p.1 - a.1).powi(2)).sqrt();
     }
 
@@ -198,11 +251,24 @@ fn point_to_segment_distance(p: (f64, f64), a: (f64, f64), b: (f64, f64)) -> f64
 /// For a CCW-wound polygon, the outward normal of edge `(p0 -> p1)` points to
 /// the right: `(dy, -dx)` normalized, then scaled by `distance`.
 pub fn offset_edge(p0: (f64, f64), p1: (f64, f64), distance: f64) -> ((f64, f64), (f64, f64)) {
+    // The endpoints coincide when they differ by no more than the rounding of
+    // their own coordinates.
+    let magnitude = p0.0.abs().max(p0.1.abs()).max(p1.0.abs()).max(p1.1.abs());
+    offset_edge_with(p0, p1, distance, 1e-15 * magnitude)
+}
+
+/// [`offset_edge`] with the length at or under which the edge is a point.
+fn offset_edge_with(
+    p0: (f64, f64),
+    p1: (f64, f64),
+    distance: f64,
+    point_length: f64,
+) -> ((f64, f64), (f64, f64)) {
     let dx = p1.0 - p0.0;
     let dy = p1.1 - p0.1;
-    let len = (dx * dx + dy * dy).sqrt();
+    let len = dx.hypot(dy);
 
-    if len < EPS {
+    if len <= point_length {
         return (p0, p1);
     }
 
@@ -228,7 +294,7 @@ pub fn line_intersection(
 ) -> Option<(f64, f64)> {
     let cross = d1.0 * d2.1 - d1.1 * d2.0;
 
-    if cross.abs() < EPS {
+    if is_parallel(cross, d1, d2) {
         return None;
     }
 
@@ -236,6 +302,13 @@ pub fn line_intersection(
     let t = (dp.0 * d2.1 - dp.1 * d2.0) / cross;
 
     Some((p1.0 + t * d1.0, p1.1 + t * d1.1))
+}
+
+/// Whether two directions are parallel: their cross product is the product of
+/// their lengths times the sine of the angle between them, so that sine is what
+/// is compared (a direction with no length is parallel to everything).
+fn is_parallel(cross: f64, d1: (f64, f64), d2: (f64, f64)) -> bool {
+    cross.abs() <= PARALLEL_SINE * d1.0.hypot(d1.1) * d2.0.hypot(d2.1)
 }
 
 fn segment_intersection(
@@ -248,7 +321,7 @@ fn segment_intersection(
     let db = (b1.0 - b0.0, b1.1 - b0.1);
     let cross = da.0 * db.1 - da.1 * db.0;
 
-    if cross.abs() < EPS {
+    if is_parallel(cross, da, db) {
         return None;
     }
 
@@ -256,7 +329,11 @@ fn segment_intersection(
     let t = (dp.0 * db.1 - dp.1 * db.0) / cross;
     let u = (dp.0 * da.1 - dp.1 * da.0) / cross;
 
-    if t > EPS && t < 1.0 - EPS && u > EPS && u < 1.0 - EPS {
+    if t > PARAMETER_FLOOR
+        && t < 1.0 - PARAMETER_FLOOR
+        && u > PARAMETER_FLOOR
+        && u < 1.0 - PARAMETER_FLOOR
+    {
         let pt = (a0.0 + t * da.0, a0.1 + t * da.1);
         Some((t, u, pt))
     } else {
@@ -264,7 +341,7 @@ fn segment_intersection(
     }
 }
 
-fn remove_consecutive_duplicates(vertices: &[(f64, f64)]) -> Vec<(f64, f64)> {
+fn remove_consecutive_duplicates(vertices: &[(f64, f64)], length: f64) -> Vec<(f64, f64)> {
     if vertices.is_empty() {
         return Vec::new();
     }
@@ -275,7 +352,7 @@ fn remove_consecutive_duplicates(vertices: &[(f64, f64)]) -> Vec<(f64, f64)> {
         let last = result
             .last()
             .expect("result is non-empty after initial push");
-        if (v.0 - last.0).abs() > EPS || (v.1 - last.1).abs() > EPS {
+        if (v.0 - last.0).abs() > length || (v.1 - last.1).abs() > length {
             result.push(v);
         }
     }
@@ -283,7 +360,7 @@ fn remove_consecutive_duplicates(vertices: &[(f64, f64)]) -> Vec<(f64, f64)> {
     if result.len() > 1 {
         let first = result[0];
         let last = result.last().expect("result has at least 2 elements");
-        if (first.0 - last.0).abs() < EPS && (first.1 - last.1).abs() < EPS {
+        if (first.0 - last.0).abs() < length && (first.1 - last.1).abs() < length {
             result.pop();
         }
     }
@@ -291,7 +368,7 @@ fn remove_consecutive_duplicates(vertices: &[(f64, f64)]) -> Vec<(f64, f64)> {
     result
 }
 
-fn resolve_self_intersections(vertices: &[(f64, f64)]) -> Vec<Vec<(f64, f64)>> {
+fn resolve_self_intersections(vertices: &[(f64, f64)], floors: Floors) -> Vec<Vec<(f64, f64)>> {
     let n = vertices.len();
 
     let mut event_edge_i: Vec<usize> = Vec::new();
@@ -322,7 +399,7 @@ fn resolve_self_intersections(vertices: &[(f64, f64)]) -> Vec<Vec<(f64, f64)>> {
 
     if event_edge_i.is_empty() {
         let sa = polygon::signed_area(vertices);
-        if sa > EPS {
+        if sa > floors.area {
             return vec![vertices.to_vec()];
         }
         return Vec::new();
@@ -408,10 +485,12 @@ fn resolve_self_intersections(vertices: &[(f64, f64)]) -> Vec<Vec<(f64, f64)>> {
             if curr == start && loop_pts.len() >= 3 {
                 let sa = polygon::signed_area(&loop_pts);
 
-                if sa > EPS {
+                if sa > floors.area {
                     for &lp in &loop_pts {
                         for (idx, &np) in node_points.iter().enumerate() {
-                            if (lp.0 - np.0).abs() < EPS && (lp.1 - np.1).abs() < EPS {
+                            if (lp.0 - np.0).abs() < floors.length
+                                && (lp.1 - np.1).abs() < floors.length
+                            {
                                 visited[idx] = true;
                             }
                         }
@@ -424,7 +503,7 @@ fn resolve_self_intersections(vertices: &[(f64, f64)]) -> Vec<Vec<(f64, f64)>> {
 
     if result_loops.is_empty() {
         let sa = polygon::signed_area(vertices);
-        if sa > EPS {
+        if sa > floors.area {
             return vec![vertices.to_vec()];
         }
         return Vec::new();
@@ -436,6 +515,9 @@ fn resolve_self_intersections(vertices: &[(f64, f64)]) -> Vec<Vec<(f64, f64)>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Tolerance of the assertions (coordinates here are of the order of ten).
+    const EPS: f64 = 1e-10;
 
     fn approx_area(polygon: &[(f64, f64)]) -> f64 {
         polygon::area(polygon)

@@ -10,6 +10,13 @@ Maintained from 0.1.1 onward; earlier entries list release dates only (see git h
 
 ### Fixed
 
+- `offset::offset_polygon`, `offset_polygon_miter`, `offset_edge` and `line_intersection` judged
+  degeneracy against an absolute 1e-10 on lengths, areas and cross products alike, so a polygon
+  with sides under about 1e-5 (a part in meters, a feature in a unit chosen for something else)
+  came back unchanged or empty, and two perpendicular lines were called parallel. The floors now
+  follow the polygon's size, and directions are parallel when the sine of the angle between them
+  is under 1e-12; the rings are the same in any unit (scaled by a power of two, they are equal
+  ring for ring). A segment is projected on however short it is; only one with no length is a point.
 - `polygon::centroid` and `polygon::centroid_with_holes` returned `None` for any polygon whose
   area was below an absolute 1e-15, which is every polygon with sides under about 3e-8 (a part
   in meters, a cell in a unit chosen for something else). Degeneracy is now judged against the
