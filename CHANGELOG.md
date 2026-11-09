@@ -8,6 +8,8 @@ Maintained from 0.1.1 onward; earlier entries list release dates only (see git h
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-09
+
 ### Fixed
 
 - `offset::offset_polygon`, `offset_polygon_miter`, `offset_edge` and `line_intersection` judged
